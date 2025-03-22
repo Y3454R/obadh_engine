@@ -1,7 +1,7 @@
 use std::env;
 use std::io::{self, Read};
 use serde_json::json;
-use obadh_engine::{Sanitizer, Tokenizer, TokenType};
+use obadh_engine::{Sanitizer, Tokenizer, TokenType, PhoneticUnitType};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments
@@ -17,6 +17,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.len() > 1 && args[1] == "--debug-vowels" {
         let tokenizer = Tokenizer::new();
         debug_vowel_patterns(&tokenizer);
+        return Ok(());
+    }
+
+    // Debug direct word tokenization
+    if args.len() > 2 && args[1] == "--debug-word" {
+        let word = &args[2];
+        let tokenizer = Tokenizer::new();
+        debug_word_tokenization(&tokenizer, word);
+        return Ok(());
+    }
+    
+    // Special tokenization that preserves ",," sequences
+    if args.len() > 2 && args[1] == "--special-tokenize" {
+        let text = &args[2];
+        let tokenizer = Tokenizer::new();
+        debug_special_tokenization(&tokenizer, text);
         return Ok(());
     }
     
@@ -99,6 +115,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+// Debug function to directly test word tokenization
+fn debug_word_tokenization(tokenizer: &Tokenizer, word: &str) {
+    println!("Direct word tokenization for '{}':", word);
+    let units = tokenizer.tokenize_word(word);
+    
+    println!("Phonetic units:");
+    for (i, unit) in units.iter().enumerate() {
+        println!("  {}: {:?} - '{}'", i, unit.unit_type, unit.text);
+    }
+    
+    // Check if it's a conjunct without using to_string()
+    if units.len() == 1 {
+        match units[0].unit_type {
+            PhoneticUnitType::Conjunct => {
+                println!("\nDetected as a conjunct: '{}'", units[0].text);
+            },
+            _ => {}
+        }
+    }
+}
+
 // Debug function to print vowel patterns loaded by the tokenizer
 fn debug_vowel_patterns(tokenizer: &Tokenizer) {
     // This requires exposing the vowel_patterns field in the Tokenizer struct
@@ -117,6 +154,26 @@ fn debug_vowel_patterns(tokenizer: &Tokenizer) {
     }
 }
 
+// For testing purposes, add a special function that preserves commas in k,,k pattern
+fn debug_special_tokenization(tokenizer: &Tokenizer, text: &str) {
+    println!("Special tokenization for '{}':", text);
+    
+    // First perform a basic split by whitespace
+    let words: Vec<&str> = text.split_whitespace().collect();
+    
+    println!("Words after splitting by whitespace:");
+    for (i, word) in words.iter().enumerate() {
+        println!("  {}: '{}'", i, word);
+        
+        // Now tokenize each word phonetically
+        let units = tokenizer.tokenize_word(word);
+        println!("  Phonetic units:");
+        for (j, unit) in units.iter().enumerate() {
+            println!("    {}: {:?} - '{}'", j, unit.unit_type, unit.text);
+        }
+    }
+}
+
 fn print_help() {
     println!("Obadh Engine Tokenizer");
     println!("======================");
@@ -127,6 +184,8 @@ fn print_help() {
     println!("  cat file.txt | tokenizer Tokenize text from stdin");
     println!("  tokenizer --help         Show this help message");
     println!("  tokenizer --debug-vowels Print vowel patterns loaded from definitions");
+    println!("  tokenizer --debug-word WORD Directly tokenize a single word");
+    println!("  tokenizer --special-tokenize TEXT Special tokenize a text");
     println!();
     println!("Output:");
     println!("  JSON data containing:");

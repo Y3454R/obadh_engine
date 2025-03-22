@@ -52,8 +52,12 @@ pub enum PhoneticUnitType {
     Consonant,
     /// Vowel
     Vowel,
+    /// A terminating vowel like 'o' that completes syllables
+    TerminatingVowel,
     /// A consonant with a vowel modifier
     ConsonantWithVowel,
+    /// A consonant with a terminating vowel
+    ConsonantWithTerminator,
     /// A consonant followed by hasant
     ConsonantWithHasant,
     /// A conjunct (multiple consonants joined with hasant)
@@ -88,7 +92,16 @@ impl Tokenizer {
         // Get vowel patterns from the definitions
         let vowels_map = vowels();
         for roman in vowels_map.keys() {
+            // Mark only 'o' as a terminating vowel
+            if *roman == "o" {
+                continue; // Skip adding to vowel_patterns, will add as terminator
+            }
             vowel_patterns.insert(roman.to_string(), true);
+        }
+        
+        // Add terminating vowel 'o' separately
+        if vowels_map.contains_key("o") {
+            special_sequences.insert("o".to_string(), PhoneticUnitType::TerminatingVowel);
         }
         
         // Get consonant patterns from the definitions
@@ -150,7 +163,37 @@ impl Tokenizer {
             }
         };
         
-        for (i, c) in text.char_indices() {
+        let mut i = 0;
+        while i < text.len() {
+            // Get the current character
+            let c = text[i..].chars().next().unwrap();
+            let char_len = c.len_utf8();
+            
+            // Special case: Check for hasanta sequence (,,)
+            if c == ',' && i + 1 < text.len() && text.chars().nth(i + 1) == Some(',') {
+                // If we're in a word context and there's a consonant before this
+                if !current_word.is_empty() {
+                    // Add the sequence to the current word
+                    current_word.push_str(",,");
+                    i += 2; // Skip both commas
+                    continue;
+                } else {
+                    // If we're not in a word context, handle as regular punctuation
+                    add_current_word(&mut current_word, current_position, &mut tokens);
+                    
+                    // Add the first comma as punctuation
+                    tokens.push(Token {
+                        content: ",".to_string(),
+                        token_type: TokenType::Punctuation,
+                        position: i,
+                    });
+                    
+                    i += 1; // Move to the next comma
+                    current_position = i;
+                    continue;
+                }
+            }
+            
             if c.is_whitespace() {
                 // Add the current word if any
                 add_current_word(&mut current_word, current_position, &mut tokens);
@@ -162,7 +205,7 @@ impl Tokenizer {
                     position: i,
                 });
                 
-                current_position = i + c.len_utf8();
+                current_position = i + char_len;
             } else if c.is_ascii_punctuation() {
                 // Add the current word if any
                 add_current_word(&mut current_word, current_position, &mut tokens);
@@ -174,7 +217,7 @@ impl Tokenizer {
                     position: i,
                 });
                 
-                current_position = i + c.len_utf8();
+                current_position = i + char_len;
             } else if !c.is_alphanumeric() && !current_word.is_empty() {
                 // Special symbol - add the current word if any
                 add_current_word(&mut current_word, current_position, &mut tokens);
@@ -186,7 +229,7 @@ impl Tokenizer {
                     position: i,
                 });
                 
-                current_position = i + c.len_utf8();
+                current_position = i + char_len;
             } else {
                 // If we have an empty current word, update the position
                 if current_word.is_empty() {
@@ -195,6 +238,8 @@ impl Tokenizer {
                 // Add the character to the current word
                 current_word.push(c);
             }
+            
+            i += char_len;
         }
         
         // Add any remaining word
@@ -319,6 +364,29 @@ impl Tokenizer {
                 units.remove(i+1);
                 
                 // Don't increment i since we want to check if the new conjunct
+                // is part of a larger complex form
+                continue;
+            }
+            
+            // Identify consonant + terminating vowel as a consonant with terminator
+            if i + 1 < units.len() && 
+               units[i].unit_type == PhoneticUnitType::Consonant &&
+               units[i+1].unit_type == PhoneticUnitType::TerminatingVowel {
+                
+                let combined_text = format!("{}{}", units[i].text, units[i+1].text);
+                let position = units[i].position;
+                
+                // Replace the two units with a single consonant+terminator unit
+                units[i] = PhoneticUnit {
+                    text: combined_text,
+                    unit_type: PhoneticUnitType::ConsonantWithTerminator,
+                    position,
+                };
+                
+                // Remove the vowel unit
+                units.remove(i+1);
+                
+                // Don't increment i since we want to check if the new unit
                 // is part of a larger complex form
                 continue;
             }

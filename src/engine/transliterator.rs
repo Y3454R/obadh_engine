@@ -268,9 +268,25 @@ impl Transliterator {
                         result.push_str(&unit.text);
                     }
                 },
+                PhoneticUnitType::TerminatingVowel => {
+                    // Handle terminating vowels (o, O)
+                    if let Some(vowel) = self.vowels.get(unit.text.as_str()) {
+                        // Use the independent form for standalone terminating vowels
+                        result.push_str(&vowel.independent);
+                    } else {
+                        // Fallback: keep original text
+                        result.push_str(&unit.text);
+                    }
+                },
                 PhoneticUnitType::ConsonantWithVowel => {
                     // This is a complex unit that needs to be processed
                     // For now, just return the original text as a placeholder
+                    result.push_str(&unit.text);
+                },
+                PhoneticUnitType::ConsonantWithTerminator => {
+                    // Process consonant with terminating vowel (like o, O)
+                    // This is a specialized case of ConsonantWithVowel
+                    // For now, use the same placeholder implementation
                     result.push_str(&unit.text);
                 },
                 PhoneticUnitType::ConsonantWithHasant => {
