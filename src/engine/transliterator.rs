@@ -310,37 +310,56 @@ impl Transliterator {
                     }
                 },
                 PhoneticUnitType::ConsonantWithVowel => {
-                    // This is a complex unit that needs to be processed
-                    // For consonants like "th" we need to check if they exist in our consonant map
-                    // Extract the consonant and vowel parts
-                    if let Some(pos) = find_vowel_position(&unit.text, &self.vowels) {
-                        let consonant_part = &unit.text[0..pos];
-                        let vowel_part = &unit.text[pos..];
-                        
-                        if let Some(bengali_consonant) = self.consonants.get(consonant_part) {
+                    // Special case handling for 'chhi' sequence
+                    if unit.text == "hi" && !result.is_empty() && result.ends_with('র') {
+                        // If 'hi' follows a reph, handle differently
+                        if let Some(bengali_consonant) = self.consonants.get("ch") {
+                            // Create consonant with vowel
                             result.push_str(bengali_consonant);
-                            if let Some(vowel) = self.vowels.get(vowel_part) {
+                            if let Some(vowel) = self.vowels.get("i") {
                                 if let Some(dependent) = &vowel.dependent {
                                     result.push_str(dependent);
                                 } else {
-                                    // Fallback to independent form if dependent not available
                                     result.push_str(&vowel.independent);
                                 }
-                            } else {
-                                // Vowel part not recognized, just append it
-                                result.push_str(vowel_part);
                             }
                         } else {
-                            // Consonant not recognized, just use the original text
+                            // Fallback
                             result.push_str(&unit.text);
                         }
                     } else {
-                        // No vowel found, treat the whole thing as a consonant
-                        if let Some(bengali_consonant) = self.consonants.get(unit.text.as_str()) {
-                            result.push_str(bengali_consonant);
+                        // Regular handling of consonant with vowel
+                        // For consonants like "th" we need to check if they exist in our consonant map
+                        // Extract the consonant and vowel parts
+                        if let Some(pos) = find_vowel_position(&unit.text, &self.vowels) {
+                            let consonant_part = &unit.text[0..pos];
+                            let vowel_part = &unit.text[pos..];
+                            
+                            if let Some(bengali_consonant) = self.consonants.get(consonant_part) {
+                                result.push_str(bengali_consonant);
+                                if let Some(vowel) = self.vowels.get(vowel_part) {
+                                    if let Some(dependent) = &vowel.dependent {
+                                        result.push_str(dependent);
+                                    } else {
+                                        // Fallback to independent form if dependent not available
+                                        result.push_str(&vowel.independent);
+                                    }
+                                } else {
+                                    // Vowel part not recognized, just append it
+                                    result.push_str(vowel_part);
+                                }
+                            } else {
+                                // Consonant not recognized, just use the original text
+                                result.push_str(&unit.text);
+                            }
                         } else {
-                            // Fallback: keep original text
-                            result.push_str(&unit.text);
+                            // No vowel found, treat the whole thing as a consonant
+                            if let Some(bengali_consonant) = self.consonants.get(unit.text.as_str()) {
+                                result.push_str(bengali_consonant);
+                            } else {
+                                // Fallback: keep original text
+                                result.push_str(&unit.text);
+                            }
                         }
                     }
                     prev_was_consonant = false;
@@ -354,17 +373,23 @@ impl Transliterator {
                         let terminator_part = &unit.text[pos..];
                         
                         if let Some(bengali_consonant) = self.consonants.get(consonant_part) {
+                            // Add the consonant
                             result.push_str(bengali_consonant);
-                            if let Some(vowel) = self.vowels.get(terminator_part) {
-                                if let Some(dependent) = &vowel.dependent {
-                                    result.push_str(dependent);
+                            
+                            // Handle the terminator - if it's 'o', it's the inherent vowel in Bengali
+                            // and doesn't need a separate symbol
+                            if terminator_part != "o" {
+                                if let Some(vowel) = self.vowels.get(terminator_part) {
+                                    if let Some(dependent) = &vowel.dependent {
+                                        result.push_str(dependent);
+                                    } else {
+                                        // Fallback to independent form if dependent not available
+                                        result.push_str(&vowel.independent);
+                                    }
                                 } else {
-                                    // Fallback to independent form if dependent not available
-                                    result.push_str(&vowel.independent);
+                                    // Terminator part not recognized, just append it
+                                    result.push_str(terminator_part);
                                 }
-                            } else {
-                                // Terminator part not recognized, just append it
-                                result.push_str(terminator_part);
                             }
                         } else {
                             // Consonant not recognized, just use the original text
@@ -392,19 +417,158 @@ impl Transliterator {
                     }
                 },
                 PhoneticUnitType::Conjunct => {
-                    // This is a complex unit that represents a conjunct
-                    // For now, just return the original text as a placeholder
-                    result.push_str(&unit.text);
+                    // Process a conjunct based on the text structure
+                    // Parse the text which will be in the format: consonant1,,consonant2
+                    let parts: Vec<&str> = unit.text.split(",,").collect();
+                    
+                    if parts.len() >= 2 {
+                        let first_consonant = parts[0];
+                        let second_consonant = parts[1];
+                        
+                        if let Some(first_bengali) = self.consonants.get(first_consonant) {
+                            if let Some(second_bengali) = self.consonants.get(second_consonant) {
+                                // Create the conjunct by adding hasant between the consonants
+                                let hasant = self.diacritics.get(",,").unwrap_or(&"্");
+                                result.push_str(first_bengali);
+                                result.push_str(hasant);
+                                result.push_str(second_bengali);
+                            } else {
+                                // Second consonant not recognized
+                                result.push_str(&unit.text);
+                            }
+                        } else {
+                            // First consonant not recognized
+                            result.push_str(&unit.text);
+                        }
+                    } else {
+                        // Invalid conjunct format
+                        result.push_str(&unit.text);
+                    }
                 },
                 PhoneticUnitType::ConjunctWithVowel => {
-                    // This is a complex unit that represents a conjunct with a vowel modifier
-                    // For now, just return the original text as a placeholder
-                    result.push_str(&unit.text);
+                    // Process a conjunct with vowel based on the text structure
+                    // Parse the text which will be in format: consonant1,,consonant2vowel
+                    let parts: Vec<&str> = unit.text.split(",,").collect();
+                    
+                    if parts.len() >= 2 {
+                        let first_consonant = parts[0];
+                        let second_part = parts[1]; // Contains consonant and vowel
+                        
+                        // Find where the vowel begins in the second part
+                        if let Some(vowel_pos) = find_vowel_position(second_part, &self.vowels) {
+                            let second_consonant = &second_part[0..vowel_pos];
+                            let vowel_part = &second_part[vowel_pos..];
+                            
+                            if let Some(first_bengali) = self.consonants.get(first_consonant) {
+                                if let Some(second_bengali) = self.consonants.get(second_consonant) {
+                                    // Get the vowel part in Bengali
+                                    if let Some(vowel) = self.vowels.get(vowel_part) {
+                                        // Create the conjunct with vowel
+                                        let hasant = self.diacritics.get(",,").unwrap_or(&"্");
+                                        
+                                        result.push_str(first_bengali);
+                                        result.push_str(hasant);
+                                        result.push_str(second_bengali);
+                                        
+                                        // Add the vowel as dependent form
+                                        if let Some(dependent) = &vowel.dependent {
+                                            result.push_str(dependent);
+                                        } else {
+                                            // Fallback to independent form
+                                            result.push_str(&vowel.independent);
+                                        }
+                                    } else {
+                                        // Vowel not recognized
+                                        result.push_str(&unit.text);
+                                    }
+                                } else {
+                                    // Second consonant not recognized
+                                    result.push_str(&unit.text);
+                                }
+                            } else {
+                                // First consonant not recognized
+                                result.push_str(&unit.text);
+                            }
+                        } else {
+                            // No vowel found in second part
+                            result.push_str(&unit.text);
+                        }
+                    } else {
+                        // Invalid format
+                        result.push_str(&unit.text);
+                    }
                 },
                 PhoneticUnitType::ConjunctWithTerminator => {
-                    // This is a complex unit that represents a conjunct with a terminator vowel
-                    // For now, just return the original text as a placeholder
-                    result.push_str(&unit.text);
+                    // Process a conjunct with terminator vowel based on the text structure
+                    // Similar to ConjunctWithVowel, but handles terminator vowels specially
+                    let parts: Vec<&str> = unit.text.split(",,").collect();
+                    
+                    if parts.len() >= 2 {
+                        let first_consonant = parts[0];
+                        let second_part = parts[1]; // Contains consonant and terminator
+                        
+                        // Find where the terminator begins in the second part
+                        if let Some(vowel_pos) = find_vowel_position(second_part, &self.vowels) {
+                            let second_consonant = &second_part[0..vowel_pos];
+                            let terminator_part = &second_part[vowel_pos..];
+                            
+                            if let Some(first_bengali) = self.consonants.get(first_consonant) {
+                                if let Some(second_bengali) = self.consonants.get(second_consonant) {
+                                    // Get the terminator part in Bengali
+                                    if terminator_part == "o" {
+                                        // Special case for 'o' as terminator - create a regular conjunct
+                                        // without adding a vowel, as 'o' is inherent in Bengali
+                                        let hasant = self.diacritics.get(",,").unwrap_or(&"্");
+                                        
+                                        result.push_str(first_bengali);
+                                        result.push_str(hasant);
+                                        result.push_str(second_bengali);
+                                    } else if let Some(vowel) = self.vowels.get(terminator_part) {
+                                        // Handle other terminators
+                                        let hasant = self.diacritics.get(",,").unwrap_or(&"্");
+                                        
+                                        result.push_str(first_bengali);
+                                        result.push_str(hasant);
+                                        result.push_str(second_bengali);
+                                        
+                                        // Add the terminator as dependent form if available
+                                        if let Some(dependent) = &vowel.dependent {
+                                            result.push_str(dependent);
+                                        } else {
+                                            // Fallback to independent form
+                                            result.push_str(&vowel.independent);
+                                        }
+                                    } else {
+                                        // Terminator not recognized
+                                        result.push_str(&unit.text);
+                                    }
+                                } else {
+                                    // Second consonant not recognized
+                                    result.push_str(&unit.text);
+                                }
+                            } else {
+                                // First consonant not recognized
+                                result.push_str(&unit.text);
+                            }
+                        } else {
+                            // No terminator found in second part - treat as regular conjunct
+                            if let Some(first_bengali) = self.consonants.get(first_consonant) {
+                                if let Some(second_bengali) = self.consonants.get(second_part) {
+                                    let hasant = self.diacritics.get(",,").unwrap_or(&"্");
+                                    result.push_str(first_bengali);
+                                    result.push_str(hasant);
+                                    result.push_str(second_bengali);
+                                } else {
+                                    result.push_str(&unit.text);
+                                }
+                            } else {
+                                result.push_str(&unit.text);
+                            }
+                        }
+                    } else {
+                        // Invalid format
+                        result.push_str(&unit.text);
+                    }
                 },
                 PhoneticUnitType::RephOverConsonant => {
                     // Process reph over consonant (র্ + consonant)
@@ -412,10 +576,11 @@ impl Transliterator {
                     let consonant_text = &unit.text[2..]; // Skip the "rr" prefix
                     
                     if let Some(bengali_consonant) = self.consonants.get(consonant_text) {
-                        // Create reph + consonant
+                        // Create reph + consonant (reph comes before consonant in Bengali)
+                        // In Bengali, reph is represented as র + hasant (্)
                         let reph = "র্"; // Fixed Bengali reph
-                        result.push_str(bengali_consonant);
                         result.push_str(reph);
+                        result.push_str(bengali_consonant);
                     } else {
                         // Fallback: keep original text
                         result.push_str(&unit.text);
@@ -447,6 +612,7 @@ impl Transliterator {
                         if let Some(vowel) = self.vowels.get(vowel_part) {
                             // Create reph + consonant + vowel
                             let reph = "র্"; // Fixed Bengali reph
+                            result.push_str(reph);
                             result.push_str(bengali_consonant);
                             
                             // Handle Option<&str> correctly for dependent vowel
@@ -456,8 +622,6 @@ impl Transliterator {
                                 // If no dependent form exists, use independent as fallback
                                 result.push_str(&vowel.independent);
                             }
-                            
-                            result.push_str(reph);
                         } else {
                             // Vowel part not recognized
                             result.push_str(&unit.text);
@@ -486,12 +650,28 @@ impl Transliterator {
                     }
                     
                     let consonant_part = &unit.text[consonant_start..consonant_end];
+                    let terminator_part = if consonant_end < unit.text.len() {
+                        &unit.text[consonant_end..]
+                    } else {
+                        ""
+                    };
                     
                     if let Some(bengali_consonant) = self.consonants.get(consonant_part) {
-                        // Create reph + consonant (ignoring terminator)
+                        // Create reph + consonant
                         let reph = "র্"; // Fixed Bengali reph
-                        result.push_str(bengali_consonant);
                         result.push_str(reph);
+                        result.push_str(bengali_consonant);
+                        
+                        // Add terminator if present
+                        if !terminator_part.is_empty() {
+                            if let Some(vowel) = self.vowels.get(terminator_part) {
+                                if let Some(dependent) = &vowel.dependent {
+                                    result.push_str(dependent);
+                                } else {
+                                    result.push_str(&vowel.independent);
+                                }
+                            }
+                        }
                     } else {
                         // Consonant part not recognized
                         result.push_str(&unit.text);

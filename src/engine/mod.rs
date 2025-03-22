@@ -1,8 +1,8 @@
 //! Engine module for the Obadh transliteration system
 
-mod transliterator;
-mod sanitizer;
-mod tokenizer;
+pub mod transliterator;
+pub mod sanitizer;
+pub mod tokenizer;
 
 pub use transliterator::Transliterator;
 pub use sanitizer::{Sanitizer, SanitizeResult};
