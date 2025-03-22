@@ -304,6 +304,16 @@ impl Transliterator {
                     // For now, just return the original text as a placeholder
                     result.push_str(&unit.text);
                 },
+                PhoneticUnitType::ConjunctWithVowel => {
+                    // This is a complex unit that represents a conjunct with a vowel modifier
+                    // For now, just return the original text as a placeholder
+                    result.push_str(&unit.text);
+                },
+                PhoneticUnitType::ConjunctWithTerminator => {
+                    // This is a complex unit that represents a conjunct with a terminator vowel
+                    // For now, just return the original text as a placeholder
+                    result.push_str(&unit.text);
+                },
                 PhoneticUnitType::SpecialForm => {
                     // Special forms like reph
                     if unit.text == "rr" && !result.is_empty() {

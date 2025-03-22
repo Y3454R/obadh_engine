@@ -62,6 +62,10 @@ pub enum PhoneticUnitType {
     ConsonantWithHasant,
     /// A conjunct (multiple consonants joined with hasant)
     Conjunct,
+    /// A conjunct with a vowel modifier
+    ConjunctWithVowel,
+    /// A conjunct with a terminating vowel
+    ConjunctWithTerminator,
     /// A special form (e.g., reph, ya-phala, etc.)
     SpecialForm,
     /// A numeral
@@ -341,7 +345,9 @@ impl Tokenizer {
     fn identify_complex_forms(&self, units: &mut Vec<PhoneticUnit>) {
         let mut i = 0;
         while i < units.len() {
-            // Identify consonant + hasant (,,) + consonant as a conjunct
+            // First pass: Form basic units and conjuncts
+
+            // Identify consonant + hasant (,,) + consonant as an explicit conjunct
             if i + 2 < units.len() && 
                units[i].unit_type == PhoneticUnitType::Consonant &&
                units[i+1].unit_type == PhoneticUnitType::ConsonantWithHasant &&
@@ -363,8 +369,66 @@ impl Tokenizer {
                 units.remove(i+1);
                 units.remove(i+1);
                 
-                // Don't increment i since we want to check if the new conjunct
+                // Don't increment i since we want to check if the new unit
                 // is part of a larger complex form
+                continue;
+            }
+            
+            // Form conjuncts from consecutive consonants (without explicit hasant)
+            if i + 1 < units.len() && 
+               units[i].unit_type == PhoneticUnitType::Consonant &&
+               units[i+1].unit_type == PhoneticUnitType::Consonant {
+                
+                // Form an implicit conjunct by adding virtual hasant
+                let conjunct_text = format!("{}{}{}", units[i].text, ",,", units[i+1].text);
+                let position = units[i].position;
+                
+                // Replace with a single conjunct unit
+                units[i] = PhoneticUnit {
+                    text: conjunct_text,
+                    unit_type: PhoneticUnitType::Conjunct,
+                    position,
+                };
+                
+                // Remove the second consonant unit
+                units.remove(i+1);
+                
+                // Don't increment i since we want to check if the new conjunct
+                // can form part of a larger form
+                continue;
+            }
+            
+            // Form conjunct with vowel: consonant + consonantWithVowel
+            if i + 1 < units.len() && 
+               units[i].unit_type == PhoneticUnitType::Consonant &&
+               (units[i+1].unit_type == PhoneticUnitType::ConsonantWithVowel ||
+                units[i+1].unit_type == PhoneticUnitType::ConsonantWithTerminator) {
+                
+                // Separate the consonant and vowel parts from the second unit
+                let cons2 = &units[i+1].text[0..1]; // First character is the consonant
+                let vowel_part = &units[i+1].text[1..]; // Rest is the vowel
+                
+                // Form conjunct with vowel
+                let conjunct_text = format!("{}{}{}{}", units[i].text, ",,", cons2, vowel_part);
+                let position = units[i].position;
+                
+                // Choose the right unit type based on whether it has a terminator vowel or regular vowel
+                let unit_type = if units[i+1].unit_type == PhoneticUnitType::ConsonantWithTerminator {
+                    PhoneticUnitType::ConjunctWithTerminator
+                } else {
+                    PhoneticUnitType::ConjunctWithVowel
+                };
+                
+                // Replace with a single conjunct with vowel unit
+                units[i] = PhoneticUnit {
+                    text: conjunct_text,
+                    unit_type,
+                    position,
+                };
+                
+                // Remove the second unit
+                units.remove(i+1);
+                
                 continue;
             }
             
@@ -411,6 +475,50 @@ impl Tokenizer {
                 
                 // Don't increment i since we want to check if the new unit
                 // is part of a larger complex form
+                continue;
+            }
+            
+            i += 1;
+        }
+        
+        // Second pass: Handle vowels with conjuncts
+        i = 0;
+        while i < units.len() - 1 {
+            // Conjunct + Vowel -> ConjunctWithVowel
+            if units[i].unit_type == PhoneticUnitType::Conjunct && 
+               units[i+1].unit_type == PhoneticUnitType::Vowel {
+                
+                let combined_text = format!("{}{}", units[i].text, units[i+1].text);
+                let position = units[i].position;
+                
+                // Replace with a single conjunct with vowel unit
+                units[i] = PhoneticUnit {
+                    text: combined_text,
+                    unit_type: PhoneticUnitType::ConjunctWithVowel,
+                    position,
+                };
+                
+                // Remove the vowel unit
+                units.remove(i+1);
+                continue;
+            }
+            
+            // Conjunct + TerminatingVowel -> ConjunctWithTerminator
+            if units[i].unit_type == PhoneticUnitType::Conjunct && 
+               units[i+1].unit_type == PhoneticUnitType::TerminatingVowel {
+                
+                let combined_text = format!("{}{}", units[i].text, units[i+1].text);
+                let position = units[i].position;
+                
+                // Replace with a single conjunct with terminator unit
+                units[i] = PhoneticUnit {
+                    text: combined_text,
+                    unit_type: PhoneticUnitType::ConjunctWithTerminator,
+                    position,
+                };
+                
+                // Remove the vowel unit
+                units.remove(i+1);
                 continue;
             }
             
