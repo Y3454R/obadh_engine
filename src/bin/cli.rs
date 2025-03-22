@@ -31,6 +31,10 @@ struct Cli {
     /// Verbosity level
     #[arg(short, long, value_enum, default_value_t = CliVerbosityLevel::Normal)]
     verbosity: CliVerbosityLevel,
+    
+    /// Enable debug mode with token information and performance metrics (outputs JSON)
+    #[arg(short = 'd', long)]
+    debug: bool,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ValueEnum)]
@@ -86,9 +90,17 @@ fn main() -> io::Result<()> {
     let cli = Cli::parse();
     
     // Configure the engine
-    let engine = ObadhEngine::new()
-        .with_verbosity(cli.verbosity.into())
-        .with_output_format(cli.format.into());
+    let mut engine = ObadhEngine::new()
+        .with_verbosity(cli.verbosity.into());
+    
+    // If debug mode is enabled, force JSON output format
+    let output_format = if cli.debug {
+        OutputFormat::Json
+    } else {
+        cli.format.into()
+    };
+    
+    engine = engine.with_output_format(output_format);
     
     // Set up output
     let mut output: Box<dyn Write> = match cli.output_file {
@@ -103,7 +115,11 @@ fn main() -> io::Result<()> {
         None => {
             if let Some(text) = cli.text {
                 // Process text directly without streaming
-                let result = engine.transliterate_as(&text);
+                let result = if cli.debug {
+                    engine.transliterate_with_performance(&text)
+                } else {
+                    engine.transliterate_as(&text)
+                };
                 writeln!(output, "{}", result)?;
                 return Ok(());
             } else {
@@ -121,7 +137,11 @@ fn main() -> io::Result<()> {
             continue;
         }
         
-        let result = engine.transliterate_as(&line);
+        let result = if cli.debug {
+            engine.transliterate_with_performance(&line)
+        } else {
+            engine.transliterate_as(&line)
+        };
         writeln!(output, "{}", result)?;
     }
     

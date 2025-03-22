@@ -108,3 +108,41 @@ obadh_engine/
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Usage Examples
+
+### Command Line Interface
+
+The CLI offers several ways to input and output text:
+
+```bash
+# Basic usage - directly on command line
+obadh "amar sonar bangla"
+
+# Read from a file
+obadh -i input.txt
+
+# Write to a file
+obadh "amar sonar bangla" -o output.txt
+
+# Read from stdin and write to stdout
+echo "amar sonar bangla" | obadh
+
+# Use different output formats
+obadh "amar sonar bangla" -f json
+obadh "amar sonar bangla" -f xml
+obadh "amar sonar bangla" -f html
+obadh "amar sonar bangla" -f markdown
+
+# Use different verbosity levels
+obadh "amar sonar bangla" -v quiet
+obadh "amar sonar bangla" -v normal
+obadh "amar sonar bangla" -v detailed
+obadh "amar sonar bangla" -v debug
+
+# Enable debug mode with token information and performance metrics (outputs JSON)
+obadh "amar sonar bangla" -d
+
+# Process a batch of text from a file
+obadh -i input.txt -o output.txt
+```

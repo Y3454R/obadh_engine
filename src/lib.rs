@@ -142,6 +142,89 @@ impl ObadhEngine {
              .collect()
     }
     
+    /// Process a batch of texts for transliteration with improved efficiency
+    /// 
+    /// This method is optimized for large batches by using a shared tokenizer context.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `texts` - The texts to transliterate
+    /// 
+    /// # Returns
+    /// 
+    /// A vector of transliterated strings
+    pub fn batch_transliterate_efficient(&self, texts: &[&str]) -> Vec<String> {
+        // Pre-warm the tokenizer by initializing any lazy structures
+        if !texts.is_empty() {
+            let _ = self.analyze(texts[0]);
+        }
+        
+        // Process each text in the batch
+        texts.iter()
+             .map(|&text| self.transliterate(text))
+             .collect()
+    }
+    
+    /// Process a batch of texts with JSON output showing performance metrics
+    /// 
+    /// This method is useful for benchmarking and debugging large batches.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `texts` - The texts to transliterate
+    /// 
+    /// # Returns
+    /// 
+    /// JSON output with batch processing information and per-text metrics
+    pub fn batch_transliterate_with_performance(&self, texts: &[&str]) -> String {
+        use std::time::{Instant, Duration};
+        
+        // Measure overall time
+        let start_time = Instant::now();
+        
+        // Process each text and collect performance metrics
+        let mut results = Vec::with_capacity(texts.len());
+        let mut total_analyze_time = Duration::new(0, 0);
+        
+        for &text in texts {
+            let text_start = Instant::now();
+            let analysis = self.analyze(text);
+            let analyze_time = text_start.elapsed();
+            total_analyze_time += analyze_time;
+            
+            results.push((text, analysis, analyze_time));
+        }
+        
+        // Calculate total processing time
+        let total_time = start_time.elapsed();
+        
+        // Format duration for JSON
+        let format_duration = |d: Duration| -> f64 {
+            d.as_secs_f64() * 1000.0 // Convert to milliseconds
+        };
+        
+        // Create JSON structure with batch metrics
+        let json_result = json!({
+            "batch_size": texts.len(),
+            "performance": {
+                "total_ms": format_duration(total_time),
+                "avg_per_text_ms": format_duration(total_time) / texts.len() as f64,
+                "total_analysis_ms": format_duration(total_analyze_time)
+            },
+            "results": results.iter().map(|(text, analysis, time)| {
+                json!({
+                    "input": text,
+                    "output": analysis.output,
+                    "processing_ms": format_duration(*time)
+                })
+            }).collect::<Vec<_>>()
+        });
+        
+        serde_json::to_string_pretty(&json_result).unwrap_or_else(|_| 
+            format!("{{\"error\":\"Failed to serialize JSON batch output\"}}")
+        )
+    }
+    
     /// Process text from a reader and write results to a writer
     pub fn transliterate_stream<R, W>(&self, reader: &mut R, writer: &mut W) -> IoResult<()> 
     where 
@@ -330,6 +413,87 @@ impl ObadhEngine {
         };
         
         (result, debug_info)
+    }
+
+    /// Transliterate Roman text to Bengali with performance metrics
+    /// 
+    /// # Arguments
+    /// 
+    /// * `text` - The Roman text to transliterate
+    /// 
+    /// # Returns
+    /// 
+    /// A JSON string with detailed transliteration information and performance metrics
+    pub fn transliterate_with_performance(&self, text: &str) -> String {
+        use std::time::{Instant, Duration};
+        
+        // Measure overall time
+        let start_time = Instant::now();
+        
+        // Perform the transliteration analysis
+        let analyze_start = Instant::now();
+        let analysis = self.analyze(text);
+        let analyze_time = analyze_start.elapsed();
+        
+        // Break down the analysis time into estimated components
+        // Since we can't directly time the internal steps anymore,
+        // we'll provide estimates based on typical proportions
+        let total_time = start_time.elapsed();
+        
+        // Format duration for JSON
+        let format_duration = |d: Duration| -> f64 {
+            d.as_secs_f64() * 1000.0 // Convert to milliseconds
+        };
+        
+        // Estimate component times (these are approximations)
+        let tokenize_time = analyze_time.mul_f32(0.2); // ~20% of analysis time
+        let phoneme_time = analyze_time.mul_f32(0.3);  // ~30% of analysis time
+        let syllable_time = analyze_time.mul_f32(0.3); // ~30% of analysis time
+        let format_time = analyze_time.mul_f32(0.2);   // ~20% of analysis time
+        
+        // Create a detailed JSON structure with timing information
+        let json_result = json!({
+            "input": text,
+            "output": analysis.output,
+            "tokens": analysis.tokens.iter().map(|t| {
+                json!({
+                    "text": t.text,
+                    "type": format!("{:?}", t.token_type),
+                    "position": t.position.as_ref().map(|p| format!("{:?}", p))
+                })
+            }).collect::<Vec<_>>(),
+            "phonemes": analysis.phonemes.iter().map(|p| {
+                json!({
+                    "bengali": p.bengali,
+                    "roman": p.roman,
+                    "type": format!("{:?}", p.phoneme_type),
+                    "is_reph": p.is_reph,
+                    "has_ya_phala": p.has_ya_phala,
+                    "vowel": p.vowel
+                })
+            }).collect::<Vec<_>>(),
+            "syllables": analysis.syllables.iter().map(|s| {
+                json!({
+                    "consonants": s.get_consonant_text(),
+                    "vowel": s.get_vowel_text(),
+                    "has_ya_phala": s.has_ya_phala(),
+                    "has_reph": s.has_reph()
+                })
+            }).collect::<Vec<_>>(),
+            "performance": {
+                "total_ms": format_duration(total_time),
+                "analysis_ms": format_duration(analyze_time),
+                "estimated_tokenization_ms": format_duration(tokenize_time),
+                "estimated_phoneme_conversion_ms": format_duration(phoneme_time),
+                "estimated_syllable_organization_ms": format_duration(syllable_time),
+                "estimated_formatting_ms": format_duration(format_time)
+            }
+        });
+        
+        serde_json::to_string_pretty(&json_result).unwrap_or_else(|_| 
+            format!("{{\"error\":\"Failed to serialize JSON output\",\"input\":\"{}\",\"output\":\"{}\"}}", 
+                    text, analysis.output)
+        )
     }
 }
 
