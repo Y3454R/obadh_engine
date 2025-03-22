@@ -23,8 +23,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Debug direct word tokenization
     if args.len() > 2 && args[1] == "--debug-word" {
         let word = &args[2];
-        let tokenizer = Tokenizer::new();
-        debug_word_tokenization(&tokenizer, word);
+        let _tokenizer = Tokenizer::new();
+        debug_word_tokenization(word);
         return Ok(());
     }
     
@@ -33,6 +33,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let text = &args[2];
         let tokenizer = Tokenizer::new();
         debug_special_tokenization(&tokenizer, text);
+        return Ok(());
+    }
+    
+    // Transliterate a word to Bengali script
+    if args.len() > 2 && args[1] == "--transliterate" {
+        let word = &args[2];
+        debug_transliteration(word);
         return Ok(());
     }
     
@@ -116,23 +123,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // Debug function to directly test word tokenization
-fn debug_word_tokenization(tokenizer: &Tokenizer, word: &str) {
+fn debug_word_tokenization(word: &str) {
+    let tokenizer = Tokenizer::new();
+    
     println!("Direct word tokenization for '{}':", word);
+    println!("Processing details:");
+    println!("  Has chandrabindu: {}", word.contains('^'));
+    println!("  Has visarga: {}", word.contains(':'));
+    
     let units = tokenizer.tokenize_word(word);
     
-    println!("Phonetic units:");
+    println!("Phonetic units ({}): ", units.len());
     for (i, unit) in units.iter().enumerate() {
-        println!("  {}: {:?} - '{}'", i, unit.unit_type, unit.text);
-    }
-    
-    // Check if it's a conjunct without using to_string()
-    if units.len() == 1 {
-        match units[0].unit_type {
-            PhoneticUnitType::Conjunct => {
-                println!("\nDetected as a conjunct: '{}'", units[0].text);
-            },
-            _ => {}
-        }
+        let has_chandrabindu = matches!(unit.unit_type, 
+            PhoneticUnitType::ChandrabinduWithVowel | 
+            PhoneticUnitType::ChandrabinduWithConsonant | 
+            PhoneticUnitType::ChandrabinduWithConsonantAndVowel);
+            
+        let is_visarga = unit.text == ":" && unit.unit_type == PhoneticUnitType::SpecialForm;
+            
+        println!("  {}: {:?} - '{}' [Chandrabindu: {}, Visarga: {}]", 
+                i, unit.unit_type, unit.text, has_chandrabindu, is_visarga);
     }
 }
 
@@ -174,6 +185,29 @@ fn debug_special_tokenization(tokenizer: &Tokenizer, text: &str) {
     }
 }
 
+// Add a new function to test transliteration to Bengali script
+fn debug_transliteration(word: &str) {
+    use obadh_engine::engine::Transliterator;
+    let transliterator = Transliterator::new();
+    let result = transliterator.transliterate(word);
+    println!("Transliteration for '{}': '{}'", word, result);
+    
+    // Also print the phonetic units and their types
+    let phonetic_units = transliterator.tokenize_phonetic(word);
+    println!("Phonetic units:");
+    for (i, unit) in phonetic_units.iter().enumerate() {
+        let has_chandrabindu = matches!(unit.unit_type, 
+            PhoneticUnitType::ChandrabinduWithVowel | 
+            PhoneticUnitType::ChandrabinduWithConsonant | 
+            PhoneticUnitType::ChandrabinduWithConsonantAndVowel);
+            
+        let is_visarga = unit.text == ":" && unit.unit_type == PhoneticUnitType::SpecialForm;
+            
+        println!("  {}: {:?} - '{}' [Chandrabindu: {}, Visarga: {}]", 
+                i, unit.unit_type, unit.text, has_chandrabindu, is_visarga);
+    }
+}
+
 fn print_help() {
     println!("Obadh Engine Tokenizer");
     println!("======================");
@@ -186,6 +220,7 @@ fn print_help() {
     println!("  tokenizer --debug-vowels Print vowel patterns loaded from definitions");
     println!("  tokenizer --debug-word WORD Directly tokenize a single word");
     println!("  tokenizer --special-tokenize TEXT Special tokenize a text");
+    println!("  tokenizer --transliterate WORD Transliterate a word to Bengali script");
     println!();
     println!("Output:");
     println!("  JSON data containing:");
@@ -193,4 +228,18 @@ fn print_help() {
     println!("  - Sanitized text");
     println!("  - Basic tokens (words, whitespace, punctuation, etc.)");
     println!("  - Detailed tokens with phonetic unit analysis for words");
+}
+
+#[allow(dead_code)]
+fn debug_word_cmd(args: &[String]) -> Result<(), String> {
+    if args.len() < 3 {
+        eprintln!("Error: Missing word to debug");
+        println!("Usage: tokenizer --debug-word <word>");
+        return Err("Missing word".to_string());
+    }
+    
+    let word = &args[2];
+    let _tokenizer = Tokenizer::new();
+    debug_word_tokenization(word);
+    return Ok(());
 } 

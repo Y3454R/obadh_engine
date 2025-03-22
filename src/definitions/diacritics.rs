@@ -19,7 +19,8 @@ pub fn diacritics() -> HashMap<&'static str, &'static str> {
     
     // Other diacritics
     map.insert(":", "ঃ");    // Visarga
-    map.insert("``", "ৎ");   // Khanda Ta
+    map.insert("T``", "ৎ");   // Khanda Ta
+    map.insert("ng", "ং");   // Khanda Ta
     
     map
 } 

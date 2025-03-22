@@ -189,4 +189,162 @@ fn test_consonant_with_conjunct_sequences() {
     assert_eq!(units.len(), 1);
     assert_eq!(units[0].unit_type, PhoneticUnitType::ConjunctWithTerminator);
     assert_eq!(units[0].text, "k,,ko");
+}
+
+#[test]
+fn test_vocalic_r() {
+    let tokenizer = Tokenizer::new();
+    
+    // Test vocalic R ("rri") in "krri"
+    let units = tokenizer.tokenize_word("krri");
+    
+    println!("Tokenization of 'krri':");
+    for unit in &units {
+        println!("Unit '{}' type: {:?}", unit.text, unit.unit_type);
+    }
+    
+    // Verify we got a consonant with vowel (k + vocalic R)
+    assert_eq!(units.len(), 1);
+    assert_eq!(units[0].unit_type, PhoneticUnitType::ConsonantWithVowel);
+    assert_eq!(units[0].text, "krri");
+    
+    // Test vocalic R in a more complex word
+    let units = tokenizer.tokenize_word("krriShi");
+    
+    println!("Tokenization of 'krriShi':");
+    for unit in &units {
+        println!("Unit '{}' type: {:?}", unit.text, unit.unit_type);
+    }
+    
+    // Should be a consonant with vocalic R followed by a consonant with vowel
+    assert_eq!(units.len(), 2);
+    assert_eq!(units[0].unit_type, PhoneticUnitType::ConsonantWithVowel);
+    assert_eq!(units[0].text, "krri");
+    assert_eq!(units[1].unit_type, PhoneticUnitType::ConjunctWithVowel);
+    assert_eq!(units[1].text, "S,,hi");
+}
+
+#[test]
+fn test_reph_over_consonant() {
+    let tokenizer = Tokenizer::new();
+    
+    // Test reph over consonant ("rrm")
+    let units = tokenizer.tokenize_word("rrm");
+    
+    println!("Tokenization of 'rrm':");
+    for unit in &units {
+        println!("Unit '{}' type: {:?}", unit.text, unit.unit_type);
+    }
+    
+    // Verify we got a reph over consonant
+    assert_eq!(units.len(), 1);
+    assert_eq!(units[0].unit_type, PhoneticUnitType::RephOverConsonant);
+    assert_eq!(units[0].text, "rrm");
+    
+    // Test reph over consonant in a word with a vowel
+    let units = tokenizer.tokenize_word("korrm");
+    
+    println!("Tokenization of 'korrm':");
+    for unit in &units {
+        println!("Unit '{}' type: {:?}", unit.text, unit.unit_type);
+    }
+    
+    // Should be a consonant with terminator followed by a reph over consonant
+    assert_eq!(units.len(), 2);
+    assert_eq!(units[0].unit_type, PhoneticUnitType::ConsonantWithTerminator);
+    assert_eq!(units[0].text, "ko");
+    assert_eq!(units[1].unit_type, PhoneticUnitType::RephOverConsonant);
+    assert_eq!(units[1].text, "rrm");
+}
+
+#[test]
+fn test_reph_over_consonant_with_vowel() {
+    let tokenizer = Tokenizer::new();
+    
+    // Test reph over consonant with vowel ("rrmi")
+    let units = tokenizer.tokenize_word("rrmi");
+    
+    println!("Tokenization of 'rrmi':");
+    for unit in &units {
+        println!("Unit '{}' type: {:?}", unit.text, unit.unit_type);
+    }
+    
+    // Verify we got a reph over consonant with vowel
+    assert_eq!(units.len(), 1);
+    assert_eq!(units[0].unit_type, PhoneticUnitType::RephOverConsonantWithVowel);
+    assert_eq!(units[0].text, "rrmi");
+    
+    // Test in a more complex word
+    let units = tokenizer.tokenize_word("korrmO");
+    
+    println!("Tokenization of 'korrmO':");
+    for unit in &units {
+        println!("Unit '{}' type: {:?}", unit.text, unit.unit_type);
+    }
+    
+    // Should be a consonant with terminator followed by a reph over consonant with vowel
+    assert_eq!(units.len(), 2);
+    assert_eq!(units[0].unit_type, PhoneticUnitType::ConsonantWithTerminator);
+    assert_eq!(units[0].text, "ko");
+    assert_eq!(units[1].unit_type, PhoneticUnitType::RephOverConsonantWithVowel);
+    assert_eq!(units[1].text, "rrmO");
+}
+
+#[test]
+fn test_reph_over_consonant_with_terminator() {
+    let tokenizer = Tokenizer::new();
+    
+    // Test reph over consonant with terminator ("rrmo")
+    let units = tokenizer.tokenize_word("rrmo");
+    
+    println!("Tokenization of 'rrmo':");
+    for unit in &units {
+        println!("Unit '{}' type: {:?}", unit.text, unit.unit_type);
+    }
+    
+    // Verify we got a reph over consonant with terminator
+    assert_eq!(units.len(), 1);
+    assert_eq!(units[0].unit_type, PhoneticUnitType::RephOverConsonantWithTerminator);
+    assert_eq!(units[0].text, "rrmo");
+    
+    // Test full word "korrmo"
+    let units = tokenizer.tokenize_word("korrmo");
+    
+    println!("Tokenization of 'korrmo':");
+    for unit in &units {
+        println!("Unit '{}' type: {:?}", unit.text, unit.unit_type);
+    }
+    
+    // Should be a consonant with terminator followed by a reph over consonant with terminator
+    assert_eq!(units.len(), 2);
+    assert_eq!(units[0].unit_type, PhoneticUnitType::ConsonantWithTerminator);
+    assert_eq!(units[0].text, "ko");
+    assert_eq!(units[1].unit_type, PhoneticUnitType::RephOverConsonantWithTerminator);
+    assert_eq!(units[1].text, "rrmo");
+}
+
+#[test]
+fn test_comparison_normal_and_reph() {
+    let tokenizer = Tokenizer::new();
+    
+    // Compare normal 'r' usage versus reph 'rr'
+    let normal_units = tokenizer.tokenize_word("karma");
+    let reph_units = tokenizer.tokenize_word("korrmo");
+    
+    println!("Comparing 'karma' and 'korrmo':");
+    println!("'karma': {:?}", normal_units);
+    println!("'korrmo': {:?}", reph_units);
+    
+    // 'karma' should be "ka" + "r,,ma" (conjunct with vowel)
+    assert_eq!(normal_units.len(), 2);
+    assert_eq!(normal_units[0].unit_type, PhoneticUnitType::ConsonantWithVowel);
+    assert_eq!(normal_units[0].text, "ka");
+    assert_eq!(normal_units[1].unit_type, PhoneticUnitType::ConjunctWithVowel);
+    
+    // 'korrmo' should be "ko" + "rrmo" (reph over consonant with terminator)
+    assert_eq!(reph_units.len(), 2);
+    assert_eq!(reph_units[0].unit_type, PhoneticUnitType::ConsonantWithTerminator);
+    assert_eq!(reph_units[0].text, "ko");
+    assert_eq!(reph_units[1].unit_type, PhoneticUnitType::RephOverConsonantWithTerminator);
+    assert_eq!(reph_units[1].text, "rrmo");
 } 

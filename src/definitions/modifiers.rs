@@ -11,6 +11,8 @@ pub fn special_rules() -> HashMap<&'static str, &'static str> {
     // This is a placeholder for compound consonant clusters
     // that may need special handling
     map.insert("kkh", "ক্ষ"); // khiyo (ক্ষ)
-    
+    map.insert("gg", "জ্ঞ"); // ggô (ঙ্গ)
+    map.insert("hm", "হ্ম"); // hômô (হ্ম)
+    map.insert("aya", "অ্যা"); // aya (অ্যা)
     map
 } 
