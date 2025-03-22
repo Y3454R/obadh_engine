@@ -51,9 +51,13 @@ To build the WebAssembly version:
 
 ```bash
 # Use the build script
-./build.sh
+./build.sh               # Build only
+./build.sh clean         # Clean up build artifacts
+```
 
-# Or run the commands manually
+OR build manually:
+
+```bash
 wasm-pack build --target web --out-dir www/pkg
 ```
 
@@ -62,17 +66,18 @@ wasm-pack build --target web --out-dir www/pkg
 Using the build script:
 
 ```bash
-./build.sh serve
+./build.sh serve           # Uses default port 8000
+./build.sh serve 8080      # Uses custom port 8080
 ```
 
 Or manually:
 
 ```bash
 cd www
-python -m http.server
+python3 -m http.server 8000   # or 'python -m http.server 8000' on some systems
 ```
 
-Then open `http://localhost:8000` in your browser.
+Then open `http://localhost:PORT` in your browser.
 
 ## Implementation Details
 
