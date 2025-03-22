@@ -1,473 +1,352 @@
-//! Tokenizer for Roman text input.
+//! Tokenizer for the Obadh Engine
 //!
-//! The tokenizer breaks input text into linguistically meaningful tokens
-//! using a phonological approach rather than character-by-character.
+//! This module provides functionality to tokenize input text into words
+//! and letters/phonemes for processing by the transliteration engine.
 
-use std::collections::{HashSet, HashMap};
-use lazy_static::lazy_static;
+use std::collections::HashMap;
+use crate::definitions::{
+    consonants, vowels, diacritics, special_rules
+};
 
-/// Types of tokens recognized by the tokenizer
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Types of tokens that can be identified
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum TokenType {
-    /// Consonant like 'k', 'kh', 'g', etc.
-    Consonant,
-    /// Vowel like 'a', 'i', 'u', etc.
-    Vowel,
-    /// Modifier like '.', '^', etc.
-    Modifier,
-    /// Whitespace
-    Whitespace,
-    /// Punctuation
+    /// A standard word token
+    Word,
+    /// A punctuation mark
     Punctuation,
-    /// Number
+    /// A whitespace token
+    Whitespace,
+    /// A numeric token
     Number,
-    /// Other characters
-    Other,
+    /// A special symbol
+    Symbol,
 }
 
-/// A token representing a phonological unit in the input text
+/// A token from the input text
 #[derive(Debug, Clone)]
 pub struct Token {
-    /// The text of the token
-    pub text: String,
+    /// The content of the token
+    pub content: String,
     /// The type of the token
     pub token_type: TokenType,
-    /// Optional positional information
-    pub position: Option<TokenPosition>,
+    /// The position of the token in the original text
+    pub position: usize,
 }
 
-/// Position of a token in the larger context
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum TokenPosition {
-    /// Token is at the start of a word
-    Initial,
-    /// Token is in the middle of a word
-    Medial,
-    /// Token is at the end of a word
-    Final,
-    /// Token is a standalone entity
-    Isolated,
+/// Represents a sequence of phonetic components that make up a word
+#[derive(Debug, Clone)]
+pub struct PhoneticUnit {
+    /// The original text
+    pub text: String,
+    /// What type of phonetic unit this is
+    pub unit_type: PhoneticUnitType,
+    /// Position in the original word
+    pub position: usize,
 }
 
-lazy_static! {
-    /// Pattern sets for efficient token recognition
-    static ref CONSONANT_PATTERNS: HashSet<String> = {
-        let mut patterns = HashSet::new();
-        
-        // Simple consonants
-        patterns.insert("k".into());
-        patterns.insert("g".into());
-        patterns.insert("c".into());
-        patterns.insert("j".into());
-        patterns.insert("T".into());
-        patterns.insert("D".into());
-        patterns.insert("N".into());
-        patterns.insert("t".into());
-        patterns.insert("d".into());
-        patterns.insert("n".into());
-        patterns.insert("p".into());
-        patterns.insert("f".into());
-        patterns.insert("b".into());
-        patterns.insert("v".into());
-        patterns.insert("m".into());
-        patterns.insert("z".into());
-        patterns.insert("r".into());
-        patterns.insert("l".into());
-        patterns.insert("sh".into());
-        patterns.insert("S".into());
-        patterns.insert("s".into());
-        patterns.insert("h".into());
-        patterns.insert("y".into());
-        patterns.insert("w".into());
-        
-        // Aspirated consonants and compound sounds
-        patterns.insert("kh".into());
-        patterns.insert("gh".into());
-        patterns.insert("ch".into());
-        patterns.insert("jh".into());
-        patterns.insert("Th".into());
-        patterns.insert("Dh".into());
-        patterns.insert("th".into());
-        patterns.insert("dh".into());
-        patterns.insert("ph".into());
-        patterns.insert("bh".into());
-        patterns.insert("ng".into());
-        patterns.insert("chh".into());
-        
-        // Special combinations
-        patterns.insert("ksh".into());
-        patterns.insert("gj".into());
-        patterns.insert("jn".into());
-        
-        patterns
-    };
-    
-    static ref VOWEL_PATTERNS: HashSet<String> = {
-        let mut patterns = HashSet::new();
-        
-        // Basic vowels as per the documentation
-        patterns.insert("o".into());     // অ-কার (a-kar)
-        patterns.insert("A".into());     // আ-কার (aa-kar)
-        patterns.insert("i".into());     // ই-কার (i-kar)
-        patterns.insert("I".into());     // ঈ-কার (dirgho i-kar)
-        patterns.insert("u".into());     // উ-কার (u-kar)
-        patterns.insert("U".into());     // ঊ-কার (dirgho u-kar)
-        patterns.insert("e".into());     // এ-কার (e-kar)
-        patterns.insert("OI".into());    // ঐ-কার (oi-kar)
-        patterns.insert("O".into());     // ও-কার (o-kar)
-        patterns.insert("OU".into());    // ঔ-কার (ou-kar)
-        patterns.insert("rri".into());   // ঋ-কার (ri-kar)
-        
-        // Common alternative spellings for backward compatibility
-        patterns.insert("a".into());     // Equivalent to 'A'
-        patterns.insert("aa".into());    // Equivalent to 'A'
-        patterns.insert("oi".into());    // Equivalent to 'OI'
-        patterns.insert("ou".into());    // Equivalent to 'OU'
-        
-        // Vowel+vowel combinations
-        patterns.insert("ai".into());    // a + i -> আই
-        patterns.insert("au".into());    // a + u -> আউ
-        patterns.insert("ae".into());    // a + e -> আএ
-        patterns.insert("ao".into());    // a + o -> আও
-        patterns.insert("ia".into());    // i + a -> ইয়া
-        patterns.insert("io".into());    // i + o -> ইও
-        patterns.insert("eo".into());    // e + o -> এও
-        
-        patterns
-    };
-    
-    static ref MODIFIER_PATTERNS: HashSet<String> = {
-        let mut patterns = HashSet::new();
-        
-        // Hasanta, chandrabindu, etc.
-        patterns.insert(".".into());
-        patterns.insert("^".into());
-        patterns.insert("~".into());
-        patterns.insert(":".into());
-        
-        patterns
-    };
-    
-    static ref PUNCTUATION_MAP: HashMap<char, &'static str> = {
-        let mut map = HashMap::new();
-        
-        // Map Roman punctuation to Bengali
-        map.insert('.', "।");
-        map.insert('?', "?");
-        map.insert('!', "!");
-        map.insert(',', ",");
-        map.insert(';', ";");
-        map.insert(':', ":");
-        map.insert('(', "(");
-        map.insert(')', ")");
-        map.insert('[', "[");
-        map.insert(']', "]");
-        map.insert('{', "{");
-        map.insert('}', "}");
-        map.insert('"', "\"");
-        map.insert('\'', "'");
-        
-        map
-    };
-    
-    static ref NUMBER_MAP: HashMap<char, &'static str> = {
-        let mut map = HashMap::new();
-        
-        // Map Roman numerals to Bengali
-        map.insert('0', "০");
-        map.insert('1', "১");
-        map.insert('2', "২");
-        map.insert('3', "৩");
-        map.insert('4', "৪");
-        map.insert('5', "৫");
-        map.insert('6', "৬");
-        map.insert('7', "৭");
-        map.insert('8', "৮");
-        map.insert('9', "৯");
-        
-        map
-    };
+/// Types of phonetic units in Bengali transliteration
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum PhoneticUnitType {
+    /// Single consonant
+    Consonant,
+    /// Vowel
+    Vowel,
+    /// A consonant with a vowel modifier
+    ConsonantWithVowel,
+    /// A consonant followed by hasant
+    ConsonantWithHasant,
+    /// A conjunct (multiple consonants joined with hasant)
+    Conjunct,
+    /// A special form (e.g., reph, ya-phala, etc.)
+    SpecialForm,
+    /// A numeral
+    Numeral,
+    /// A symbol or punctuation
+    Symbol,
+    /// Unknown unit
+    Unknown,
 }
 
-/// Smart tokenizer that understands Bengali linguistic patterns
+/// Tokenizer for processing input text
 pub struct Tokenizer {
-    // Configuration options
-    preserve_punctuation: bool,
-    bengali_numbers: bool,
+    /// Map of special sequences to recognize
+    special_sequences: HashMap<String, PhoneticUnitType>,
+    /// Map of vowel patterns 
+    vowel_patterns: HashMap<String, bool>,
+    /// Map of consonant patterns
+    consonant_patterns: HashMap<String, bool>,
 }
 
 impl Tokenizer {
-    /// Create a new tokenizer with default settings
+    /// Create a new tokenizer with default configuration
     pub fn new() -> Self {
+        let mut special_sequences = HashMap::new();
+        let mut vowel_patterns = HashMap::new();
+        let mut consonant_patterns = HashMap::new();
+        
+        // Get vowel patterns from the definitions
+        let vowels_map = vowels();
+        for roman in vowels_map.keys() {
+            vowel_patterns.insert(roman.to_string(), true);
+        }
+        
+        // Get consonant patterns from the definitions
+        let consonants_map = consonants();
+        for roman in consonants_map.keys() {
+            consonant_patterns.insert(roman.to_string(), true);
+        }
+        
+        // Initialize special sequences
+        // Reph (র্) is a special form
+        special_sequences.insert("rr".to_string(), PhoneticUnitType::SpecialForm);
+        
+        // Hasant/Virama from diacritics
+        let diacritics_map = diacritics();
+        if let Some(hasant_key) = diacritics_map.iter().find_map(|(k, v)| {
+            if *v == "্" { Some(k) } else { None }
+        }) {
+            special_sequences.insert(hasant_key.to_string(), PhoneticUnitType::ConsonantWithHasant);
+        } else {
+            // Fallback if not found
+            special_sequences.insert(",,".to_string(), PhoneticUnitType::ConsonantWithHasant);
+        }
+        
+        // Add special rules as appropriate
+        let special_rules_map = special_rules();
+        for roman in special_rules_map.keys() {
+            special_sequences.insert(roman.to_string(), PhoneticUnitType::SpecialForm);
+        }
+        
         Tokenizer {
-            preserve_punctuation: true,
-            bengali_numbers: true,
+            special_sequences,
+            vowel_patterns,
+            consonant_patterns,
         }
     }
     
-    /// Configure whether to preserve punctuation in output
-    pub fn with_preserve_punctuation(mut self, preserve: bool) -> Self {
-        self.preserve_punctuation = preserve;
-        self
-    }
-    
-    /// Configure whether to convert numbers to Bengali
-    pub fn with_bengali_numbers(mut self, bengali: bool) -> Self {
-        self.bengali_numbers = bengali;
-        self
-    }
-    
-    /// Tokenize the input text using a longest-match approach
-    pub fn tokenize(&self, text: &str) -> Vec<Token> {
+    /// Tokenize input text into words and other tokens
+    pub fn tokenize_text(&self, text: &str) -> Vec<Token> {
         let mut tokens = Vec::new();
-        let mut i = 0;
-        let chars: Vec<char> = text.chars().collect();
+        let mut current_word = String::new();
+        let mut current_position = 0;
         
-        while i < chars.len() {
-            // Skip processing if we've already hit the end
-            if i >= chars.len() {
-                break;
-            }
-            
-            // First try different pattern lengths for more accurate tokenization
-            let mut found = false;
-            
-            // Try longest patterns first (3-char)
-            if i + 2 < chars.len() {
-                let three_chars: String = chars[i..=i+2].iter().collect();
-                if CONSONANT_PATTERNS.contains(&three_chars) {
-                    tokens.push(Token {
-                        text: three_chars,
-                        token_type: TokenType::Consonant,
-                        position: None,
-                    });
-                    i += 3;
-                    found = true;
-                } else if VOWEL_PATTERNS.contains(&three_chars) {
-                    tokens.push(Token {
-                        text: three_chars,
-                        token_type: TokenType::Vowel,
-                        position: None,
-                    });
-                    i += 3;
-                    found = true;
-                }
-            }
-            
-            // Try 2-char combinations
-            if !found && i + 1 < chars.len() {
-                let two_chars: String = chars[i..=i+1].iter().collect();
+        // Helper function to add the current word as a token
+        let add_current_word = |word: &mut String, pos: usize, tokens: &mut Vec<Token>| {
+            if !word.is_empty() {
+                // Determine if the word is a number
+                let token_type = if word.chars().all(|c| c.is_numeric()) {
+                    TokenType::Number
+                } else {
+                    TokenType::Word
+                };
                 
-                // Special handling for "oi" - always break into separate vowels
-                if two_chars == "oi" {
-                    // Always separate "o" and "i" for correct Avro behavior
-                    tokens.push(Token {
-                        text: "o".to_string(),
-                        token_type: TokenType::Vowel,
-                        position: None,
-                    });
-                    
-                    tokens.push(Token {
-                        text: "i".to_string(),
-                        token_type: TokenType::Vowel,
-                        position: None,
-                    });
-                    
-                    i += 2;
-                    found = true;
-                } else if CONSONANT_PATTERNS.contains(&two_chars) {
-                    tokens.push(Token {
-                        text: two_chars,
-                        token_type: TokenType::Consonant,
-                        position: None,
-                    });
-                    i += 2;
-                    found = true;
-                } else if VOWEL_PATTERNS.contains(&two_chars) {
-                    tokens.push(Token {
-                        text: two_chars,
-                        token_type: TokenType::Vowel,
-                        position: None,
-                    });
-                    i += 2;
-                    found = true;
-                } else if MODIFIER_PATTERNS.contains(&two_chars) {
-                    tokens.push(Token {
-                        text: two_chars,
-                        token_type: TokenType::Modifier,
-                        position: None,
-                    });
-                    i += 2;
-                    found = true;
-                }
-            }
-            
-            // Handle single-character tokens if multi-char not found
-            if !found {
-                // Check for single character patterns, preserve case for 'o' vs 'O'
-                let single_char = chars[i].to_string();
-                
-                if CONSONANT_PATTERNS.contains(&single_char) {
-                    tokens.push(Token {
-                        text: single_char,
-                        token_type: TokenType::Consonant,
-                        position: None,
-                    });
-                    i += 1;
-                    continue;
-                } else if VOWEL_PATTERNS.contains(&single_char) {
-                    // Ensure we preserve case for 'o' vs 'O'
-                    tokens.push(Token {
-                        text: single_char,
-                        token_type: TokenType::Vowel,
-                        position: None,
-                    });
-                    i += 1;
-                    continue;
-                } else if MODIFIER_PATTERNS.contains(&single_char) {
-                    tokens.push(Token {
-                        text: single_char,
-                        token_type: TokenType::Modifier,
-                        position: None,
-                    });
-                    i += 1;
-                    continue;
-                }
-                
-                // Check for whitespace
-                if chars[i].is_whitespace() {
-                    let whitespace: String = chars[i..].iter()
-                        .take_while(|c| c.is_whitespace())
-                        .collect();
-                    
-                    tokens.push(Token {
-                        text: whitespace.clone(),
-                        token_type: TokenType::Whitespace,
-                        position: None,
-                    });
-                    
-                    i += whitespace.chars().count();
-                    continue;
-                }
-                
-                // Check for punctuation
-                if self.preserve_punctuation && PUNCTUATION_MAP.contains_key(&chars[i]) {
-                    tokens.push(Token {
-                        text: chars[i].to_string(),
-                        token_type: TokenType::Punctuation,
-                        position: None,
-                    });
-                    
-                    i += 1;
-                    continue;
-                }
-                
-                // Check for numbers
-                if self.bengali_numbers && chars[i].is_ascii_digit() {
-                    let number: String = chars[i..].iter()
-                        .take_while(|c| c.is_ascii_digit())
-                        .collect();
-                    
-                    tokens.push(Token {
-                        text: number.clone(),
-                        token_type: TokenType::Number,
-                        position: None,
-                    });
-                    
-                    i += number.chars().count();
-                    continue;
-                }
-                
-                // If no pattern matched, capture as "Other"
                 tokens.push(Token {
-                    text: chars[i].to_string(),
-                    token_type: TokenType::Other,
-                    position: None,
+                    content: word.clone(),
+                    token_type,
+                    position: pos,
+                });
+                word.clear();
+            }
+        };
+        
+        for (i, c) in text.char_indices() {
+            if c.is_whitespace() {
+                // Add the current word if any
+                add_current_word(&mut current_word, current_position, &mut tokens);
+                
+                // Add the whitespace as a token
+                tokens.push(Token {
+                    content: c.to_string(),
+                    token_type: TokenType::Whitespace,
+                    position: i,
                 });
                 
-                i += 1;
+                current_position = i + c.len_utf8();
+            } else if c.is_ascii_punctuation() {
+                // Add the current word if any
+                add_current_word(&mut current_word, current_position, &mut tokens);
+                
+                // Add the punctuation as a token
+                tokens.push(Token {
+                    content: c.to_string(),
+                    token_type: TokenType::Punctuation,
+                    position: i,
+                });
+                
+                current_position = i + c.len_utf8();
+            } else if !c.is_alphanumeric() && !current_word.is_empty() {
+                // Special symbol - add the current word if any
+                add_current_word(&mut current_word, current_position, &mut tokens);
+                
+                // Add the symbol as a token
+                tokens.push(Token {
+                    content: c.to_string(),
+                    token_type: TokenType::Symbol,
+                    position: i,
+                });
+                
+                current_position = i + c.len_utf8();
+            } else {
+                // If we have an empty current word, update the position
+                if current_word.is_empty() {
+                    current_position = i;
+                }
+                // Add the character to the current word
+                current_word.push(c);
             }
         }
         
-        // Determine token positions (initial, medial, final, isolated)
-        self.determine_token_positions(&mut tokens);
+        // Add any remaining word
+        add_current_word(&mut current_word, current_position, &mut tokens);
         
         tokens
     }
     
-    /// Determine the position of each token in its context
-    /// This is critical for proper vowel handling in Bengali
-    fn determine_token_positions(&self, tokens: &mut [Token]) {
+    /// Tokenize a word into phonetic units for Bengali transliteration
+    pub fn tokenize_word(&self, word: &str) -> Vec<PhoneticUnit> {
+        let mut units = Vec::new();
         let mut i = 0;
-        while i < tokens.len() {
-            // Skip non-language tokens (whitespace, punctuation, etc.)
-            if tokens[i].token_type == TokenType::Whitespace || 
-               tokens[i].token_type == TokenType::Punctuation ||
-               tokens[i].token_type == TokenType::Other {
-                i += 1;
+        
+        while i < word.len() {
+            // Try to match special sequences first
+            let mut matched = false;
+            for (sequence, unit_type) in &self.special_sequences {
+                if i + sequence.len() <= word.len() && &word[i..i+sequence.len()] == sequence {
+                    units.push(PhoneticUnit {
+                        text: sequence.clone(),
+                        unit_type: unit_type.clone(),
+                        position: i,
+                    });
+                    i += sequence.len();
+                    matched = true;
+                    break;
+                }
+            }
+            
+            if matched {
                 continue;
             }
             
-            // Find the start of the current word
-            let word_start = i;
+            // Try to match consonant patterns (longer patterns first)
+            let mut matched_consonant = false;
+            let mut consonant_patterns: Vec<_> = self.consonant_patterns.keys().collect();
+            consonant_patterns.sort_by(|a, b| b.len().cmp(&a.len())); // Sort by length, descending
             
-            // Find the end of the current word
-            let mut word_end = word_start;
-            while word_end < tokens.len() && 
-                  tokens[word_end].token_type != TokenType::Whitespace && 
-                  tokens[word_end].token_type != TokenType::Punctuation &&
-                  tokens[word_end].token_type != TokenType::Other {
-                word_end += 1;
+            for pattern in consonant_patterns {
+                if i + pattern.len() <= word.len() && &word[i..i+pattern.len()] == pattern {
+                    units.push(PhoneticUnit {
+                        text: pattern.clone(),
+                        unit_type: PhoneticUnitType::Consonant,
+                        position: i,
+                    });
+                    i += pattern.len();
+                    matched_consonant = true;
+                    break;
+                }
             }
             
-            // Now we have the range of the current word: [word_start, word_end)
-            
-            // Set positions for tokens in this word
-            if word_end - word_start == 1 {
-                // Single token word
-                tokens[word_start].position = Some(TokenPosition::Isolated);
-            } else {
-                // Multi-token word
-                tokens[word_start].position = Some(TokenPosition::Initial);
-                
-                for j in word_start + 1..word_end - 1 {
-                    tokens[j].position = Some(TokenPosition::Medial);
-                }
-                
-                tokens[word_end - 1].position = Some(TokenPosition::Final);
+            if matched_consonant {
+                continue;
             }
             
-            // Move to next token after the word
-            i = word_end;
-        }
-    }
-    
-    /// Convert a punctuation token to its Bengali equivalent
-    pub fn convert_punctuation(&self, token: &Token) -> String {
-        if token.token_type == TokenType::Punctuation {
-            if let Some(first_char) = token.text.chars().next() {
-                if let Some(&bengali_punct) = PUNCTUATION_MAP.get(&first_char) {
-                    return bengali_punct.to_string();
+            // Try to match vowel patterns (longer patterns first)
+            let mut matched_vowel = false;
+            let mut vowel_patterns: Vec<_> = self.vowel_patterns.keys().collect();
+            vowel_patterns.sort_by(|a, b| b.len().cmp(&a.len())); // Sort by length, descending
+            
+            for pattern in vowel_patterns {
+                if i + pattern.len() <= word.len() && &word[i..i+pattern.len()] == pattern {
+                    units.push(PhoneticUnit {
+                        text: pattern.clone(),
+                        unit_type: PhoneticUnitType::Vowel,
+                        position: i,
+                    });
+                    i += pattern.len();
+                    matched_vowel = true;
+                    break;
                 }
+            }
+            
+            if matched_vowel {
+                continue;
+            }
+            
+            // If no pattern matched, treat as unknown and advance by one character
+            if i < word.len() {
+                // Find the length of one UTF-8 character
+                let char_len = word[i..].chars().next().map_or(1, |c| c.len_utf8());
+                
+                units.push(PhoneticUnit {
+                    text: word[i..i+char_len].to_string(),
+                    unit_type: PhoneticUnitType::Unknown,
+                    position: i,
+                });
+                i += char_len;
             }
         }
         
-        token.text.clone()
+        // Post-processing to identify conjuncts and other complex forms
+        self.identify_complex_forms(&mut units);
+        
+        units
     }
     
-    /// Convert a number token to its Bengali equivalent
-    pub fn convert_number(&self, token: &Token) -> String {
-        if token.token_type == TokenType::Number {
-            token.text.chars()
-                //.map(|c| NUMBER_MAP.get(&c).cloned().unwrap_or_else(|| c.to_string()))
-                // .map(|c| NUMBER_MAP.get(&c).cloned().unwrap_or_else(|| c.to_string()))
-                .map(|c| match NUMBER_MAP.get(&c) {
-                    Some(bengali_digit) => bengali_digit.to_string(),
-                    None => c.to_string()
-                })
-                .collect()
-        } else {
-            token.text.clone()
+    /// Identify complex phonetic forms like conjuncts and consonants with vowel modifiers
+    fn identify_complex_forms(&self, units: &mut Vec<PhoneticUnit>) {
+        let mut i = 0;
+        while i < units.len() {
+            // Identify consonant + hasant (,,) + consonant as a conjunct
+            if i + 2 < units.len() && 
+               units[i].unit_type == PhoneticUnitType::Consonant &&
+               units[i+1].unit_type == PhoneticUnitType::ConsonantWithHasant &&
+               units[i+2].unit_type == PhoneticUnitType::Consonant {
+                
+                let conjunct_text = format!("{}{}{}", 
+                    units[i].text, units[i+1].text, units[i+2].text);
+                
+                let position = units[i].position;
+                
+                // Replace the three units with a single conjunct unit
+                units[i] = PhoneticUnit {
+                    text: conjunct_text,
+                    unit_type: PhoneticUnitType::Conjunct,
+                    position,
+                };
+                
+                // Remove the next two units
+                units.remove(i+1);
+                units.remove(i+1);
+                
+                // Don't increment i since we want to check if the new conjunct
+                // is part of a larger complex form
+                continue;
+            }
+            
+            // Identify consonant + vowel as a consonant with vowel modifier
+            if i + 1 < units.len() && 
+               units[i].unit_type == PhoneticUnitType::Consonant &&
+               units[i+1].unit_type == PhoneticUnitType::Vowel {
+                
+                let combined_text = format!("{}{}", units[i].text, units[i+1].text);
+                let position = units[i].position;
+                
+                // Replace the two units with a single consonant+vowel unit
+                units[i] = PhoneticUnit {
+                    text: combined_text,
+                    unit_type: PhoneticUnitType::ConsonantWithVowel,
+                    position,
+                };
+                
+                // Remove the vowel unit
+                units.remove(i+1);
+                
+                // Don't increment i since we want to check if the new unit
+                // is part of a larger complex form
+                continue;
+            }
+            
+            i += 1;
         }
     }
 }
@@ -476,4 +355,4 @@ impl Default for Tokenizer {
     fn default() -> Self {
         Self::new()
     }
-}
+} 

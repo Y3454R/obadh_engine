@@ -2,7 +2,9 @@
 //!
 //! This module provides WebAssembly bindings for using the engine in web browsers.
 
-pub mod bindings;
+mod bindings;
+
+pub use bindings::*;
 
 /// Set up panic hook for better error handling in WebAssembly
 pub fn set_panic_hook() {
