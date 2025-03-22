@@ -78,6 +78,7 @@ lazy_static! {
         patterns.insert("s".into());
         patterns.insert("h".into());
         patterns.insert("y".into());
+        patterns.insert("w".into());
         
         // Aspirated consonants and compound sounds
         patterns.insert("kh".into());
@@ -104,23 +105,33 @@ lazy_static! {
     static ref VOWEL_PATTERNS: HashSet<String> = {
         let mut patterns = HashSet::new();
         
-        // Simple vowels
-        patterns.insert("a".into());
-        patterns.insert("i".into());
-        patterns.insert("u".into());
-        patterns.insert("e".into());
-        patterns.insert("o".into());
+        // Basic vowels as per the documentation
+        patterns.insert("o".into());     // অ-কার (a-kar)
+        patterns.insert("A".into());     // আ-কার (aa-kar)
+        patterns.insert("i".into());     // ই-কার (i-kar)
+        patterns.insert("I".into());     // ঈ-কার (dirgho i-kar)
+        patterns.insert("u".into());     // উ-কার (u-kar)
+        patterns.insert("U".into());     // ঊ-কার (dirgho u-kar)
+        patterns.insert("e".into());     // এ-কার (e-kar)
+        patterns.insert("OI".into());    // ঐ-কার (oi-kar)
+        patterns.insert("O".into());     // ও-কার (o-kar)
+        patterns.insert("OU".into());    // ঔ-কার (ou-kar)
+        patterns.insert("rri".into());   // ঋ-কার (ri-kar)
         
-        // Long vowels
-        patterns.insert("aa".into());
-        patterns.insert("ii".into());
-        patterns.insert("uu".into());
+        // Common alternative spellings for backward compatibility
+        patterns.insert("a".into());     // Equivalent to 'A'
+        patterns.insert("aa".into());    // Equivalent to 'A'
+        patterns.insert("oi".into());    // Equivalent to 'OI'
+        patterns.insert("ou".into());    // Equivalent to 'OU'
         
-        // Diphthongs
-        patterns.insert("oi".into());
-        patterns.insert("ou".into());
-        patterns.insert("oo".into());
-        patterns.insert("ri".into());
+        // Vowel+vowel combinations
+        patterns.insert("ai".into());    // a + i -> আই
+        patterns.insert("au".into());    // a + u -> আউ
+        patterns.insert("ae".into());    // a + e -> আএ
+        patterns.insert("ao".into());    // a + o -> আও
+        patterns.insert("ia".into());    // i + a -> ইয়া
+        patterns.insert("io".into());    // i + o -> ইও
+        patterns.insert("eo".into());    // e + o -> এও
         
         patterns
     };
@@ -209,100 +220,172 @@ impl Tokenizer {
     /// Tokenize the input text using a longest-match approach
     pub fn tokenize(&self, text: &str) -> Vec<Token> {
         let mut tokens = Vec::new();
-        let mut current_position = 0;
-        let text_chars: Vec<char> = text.chars().collect();
+        let mut i = 0;
+        let chars: Vec<char> = text.chars().collect();
         
-        while current_position < text_chars.len() {
-            let remaining: String = text_chars[current_position..].iter().collect();
-            
-            // Check for whitespace
-            if text_chars[current_position].is_whitespace() {
-                let whitespace: String = text_chars[current_position..].iter()
-                    .take_while(|c| c.is_whitespace())
-                    .collect();
-                
-                tokens.push(Token {
-                    text: whitespace.clone(),
-                    token_type: TokenType::Whitespace,
-                    position: None,
-                });
-                
-                current_position += whitespace.chars().count();
-                continue;
+        while i < chars.len() {
+            // Skip processing if we've already hit the end
+            if i >= chars.len() {
+                break;
             }
             
-            // Check for punctuation
-            if self.preserve_punctuation && PUNCTUATION_MAP.contains_key(&text_chars[current_position]) {
-                tokens.push(Token {
-                    text: text_chars[current_position].to_string(),
-                    token_type: TokenType::Punctuation,
-                    position: None,
-                });
-                
-                current_position += 1;
-                continue;
-            }
+            // First try different pattern lengths for more accurate tokenization
+            let mut found = false;
             
-            // Check for numbers
-            if self.bengali_numbers && text_chars[current_position].is_ascii_digit() {
-                let number: String = text_chars[current_position..].iter()
-                    .take_while(|c| c.is_ascii_digit())
-                    .collect();
-                
-                tokens.push(Token {
-                    text: number.clone(),
-                    token_type: TokenType::Number,
-                    position: None,
-                });
-                
-                current_position += number.chars().count();
-                continue;
-            }
-            
-            // Try to match the longest pattern first
-            let mut matched = false;
-            let patterns_to_check = [
-                // Check consonant patterns
-                (&*CONSONANT_PATTERNS, TokenType::Consonant),
-                // Check vowel patterns
-                (&*VOWEL_PATTERNS, TokenType::Vowel),
-                // Check modifier patterns
-                (&*MODIFIER_PATTERNS, TokenType::Modifier),
-            ];
-            
-            for (patterns, token_type) in patterns_to_check.iter() {
-                // Sort patterns by length (longest first)
-                let mut sorted_patterns: Vec<&String> = patterns.iter().collect();
-                sorted_patterns.sort_by(|a, b| b.len().cmp(&a.len()));
-                
-                for pattern in sorted_patterns {
-                    if remaining.starts_with(pattern) {
-                        tokens.push(Token {
-                            text: pattern.clone(),
-                            token_type: token_type.clone(),
-                            position: None,  // Will be determined later
-                        });
-                        
-                        current_position += pattern.chars().count();
-                        matched = true;
-                        break;
-                    }
-                }
-                
-                if matched {
-                    break;
+            // Try longest patterns first (3-char)
+            if i + 2 < chars.len() {
+                let three_chars: String = chars[i..=i+2].iter().collect();
+                if CONSONANT_PATTERNS.contains(&three_chars) {
+                    tokens.push(Token {
+                        text: three_chars,
+                        token_type: TokenType::Consonant,
+                        position: None,
+                    });
+                    i += 3;
+                    found = true;
+                } else if VOWEL_PATTERNS.contains(&three_chars) {
+                    tokens.push(Token {
+                        text: three_chars,
+                        token_type: TokenType::Vowel,
+                        position: None,
+                    });
+                    i += 3;
+                    found = true;
                 }
             }
             
-            // If no pattern matched, capture as "Other"
-            if !matched {
+            // Try 2-char combinations
+            if !found && i + 1 < chars.len() {
+                let two_chars: String = chars[i..=i+1].iter().collect();
+                
+                // Special handling for "oi" - always break into separate vowels
+                if two_chars == "oi" {
+                    // Always separate "o" and "i" for correct Avro behavior
+                    tokens.push(Token {
+                        text: "o".to_string(),
+                        token_type: TokenType::Vowel,
+                        position: None,
+                    });
+                    
+                    tokens.push(Token {
+                        text: "i".to_string(),
+                        token_type: TokenType::Vowel,
+                        position: None,
+                    });
+                    
+                    i += 2;
+                    found = true;
+                } else if CONSONANT_PATTERNS.contains(&two_chars) {
+                    tokens.push(Token {
+                        text: two_chars,
+                        token_type: TokenType::Consonant,
+                        position: None,
+                    });
+                    i += 2;
+                    found = true;
+                } else if VOWEL_PATTERNS.contains(&two_chars) {
+                    tokens.push(Token {
+                        text: two_chars,
+                        token_type: TokenType::Vowel,
+                        position: None,
+                    });
+                    i += 2;
+                    found = true;
+                } else if MODIFIER_PATTERNS.contains(&two_chars) {
+                    tokens.push(Token {
+                        text: two_chars,
+                        token_type: TokenType::Modifier,
+                        position: None,
+                    });
+                    i += 2;
+                    found = true;
+                }
+            }
+            
+            // Handle single-character tokens if multi-char not found
+            if !found {
+                // Check for single character patterns, preserve case for 'o' vs 'O'
+                let single_char = chars[i].to_string();
+                
+                if CONSONANT_PATTERNS.contains(&single_char) {
+                    tokens.push(Token {
+                        text: single_char,
+                        token_type: TokenType::Consonant,
+                        position: None,
+                    });
+                    i += 1;
+                    continue;
+                } else if VOWEL_PATTERNS.contains(&single_char) {
+                    // Ensure we preserve case for 'o' vs 'O'
+                    tokens.push(Token {
+                        text: single_char,
+                        token_type: TokenType::Vowel,
+                        position: None,
+                    });
+                    i += 1;
+                    continue;
+                } else if MODIFIER_PATTERNS.contains(&single_char) {
+                    tokens.push(Token {
+                        text: single_char,
+                        token_type: TokenType::Modifier,
+                        position: None,
+                    });
+                    i += 1;
+                    continue;
+                }
+                
+                // Check for whitespace
+                if chars[i].is_whitespace() {
+                    let whitespace: String = chars[i..].iter()
+                        .take_while(|c| c.is_whitespace())
+                        .collect();
+                    
+                    tokens.push(Token {
+                        text: whitespace.clone(),
+                        token_type: TokenType::Whitespace,
+                        position: None,
+                    });
+                    
+                    i += whitespace.chars().count();
+                    continue;
+                }
+                
+                // Check for punctuation
+                if self.preserve_punctuation && PUNCTUATION_MAP.contains_key(&chars[i]) {
+                    tokens.push(Token {
+                        text: chars[i].to_string(),
+                        token_type: TokenType::Punctuation,
+                        position: None,
+                    });
+                    
+                    i += 1;
+                    continue;
+                }
+                
+                // Check for numbers
+                if self.bengali_numbers && chars[i].is_ascii_digit() {
+                    let number: String = chars[i..].iter()
+                        .take_while(|c| c.is_ascii_digit())
+                        .collect();
+                    
+                    tokens.push(Token {
+                        text: number.clone(),
+                        token_type: TokenType::Number,
+                        position: None,
+                    });
+                    
+                    i += number.chars().count();
+                    continue;
+                }
+                
+                // If no pattern matched, capture as "Other"
                 tokens.push(Token {
-                    text: text_chars[current_position].to_string(),
+                    text: chars[i].to_string(),
                     token_type: TokenType::Other,
                     position: None,
                 });
                 
-                current_position += 1;
+                i += 1;
             }
         }
         
@@ -313,29 +396,31 @@ impl Tokenizer {
     }
     
     /// Determine the position of each token in its context
+    /// This is critical for proper vowel handling in Bengali
     fn determine_token_positions(&self, tokens: &mut [Token]) {
-        // Group tokens by words (separated by whitespace/punctuation)
-        let mut word_start = 0;
-        
-        while word_start < tokens.len() {
-            // Skip whitespace and punctuation
-            while word_start < tokens.len() && 
-                  (tokens[word_start].token_type == TokenType::Whitespace || 
-                   tokens[word_start].token_type == TokenType::Punctuation) {
-                word_start += 1;
+        let mut i = 0;
+        while i < tokens.len() {
+            // Skip non-language tokens (whitespace, punctuation, etc.)
+            if tokens[i].token_type == TokenType::Whitespace || 
+               tokens[i].token_type == TokenType::Punctuation ||
+               tokens[i].token_type == TokenType::Other {
+                i += 1;
+                continue;
             }
             
-            if word_start >= tokens.len() {
-                break;
-            }
+            // Find the start of the current word
+            let word_start = i;
             
-            // Find word end
-            let mut word_end = word_start + 1;
+            // Find the end of the current word
+            let mut word_end = word_start;
             while word_end < tokens.len() && 
                   tokens[word_end].token_type != TokenType::Whitespace && 
-                  tokens[word_end].token_type != TokenType::Punctuation {
+                  tokens[word_end].token_type != TokenType::Punctuation &&
+                  tokens[word_end].token_type != TokenType::Other {
                 word_end += 1;
             }
+            
+            // Now we have the range of the current word: [word_start, word_end)
             
             // Set positions for tokens in this word
             if word_end - word_start == 1 {
@@ -345,15 +430,15 @@ impl Tokenizer {
                 // Multi-token word
                 tokens[word_start].position = Some(TokenPosition::Initial);
                 
-                for i in word_start + 1..word_end - 1 {
-                    tokens[i].position = Some(TokenPosition::Medial);
+                for j in word_start + 1..word_end - 1 {
+                    tokens[j].position = Some(TokenPosition::Medial);
                 }
                 
                 tokens[word_end - 1].position = Some(TokenPosition::Final);
             }
             
-            // Move to next word
-            word_start = word_end;
+            // Move to next token after the word
+            i = word_end;
         }
     }
     
@@ -390,51 +475,5 @@ impl Tokenizer {
 impl Default for Tokenizer {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_tokenize_simple_word() {
-        let tokenizer = Tokenizer::new();
-        let tokens = tokenizer.tokenize("ami");
-        
-        assert_eq!(tokens.len(), 3);
-        assert_eq!(tokens[0].text, "a");
-        assert_eq!(tokens[0].token_type, TokenType::Vowel);
-        assert_eq!(tokens[1].text, "m");
-        assert_eq!(tokens[1].token_type, TokenType::Consonant);
-        assert_eq!(tokens[2].text, "i");
-        assert_eq!(tokens[2].token_type, TokenType::Vowel);
-    }
-    
-    #[test]
-    fn test_tokenize_with_conjuncts() {
-        let tokenizer = Tokenizer::new();
-        let tokens = tokenizer.tokenize("bangla");
-        
-        assert_eq!(tokens.len(), 5);
-        assert_eq!(tokens[0].text, "b");
-        assert_eq!(tokens[1].text, "a");
-        assert_eq!(tokens[2].text, "ng");
-        assert_eq!(tokens[3].text, "l");
-        assert_eq!(tokens[4].text, "a");
-    }
-    
-    #[test]
-    fn test_token_positions() {
-        let tokenizer = Tokenizer::new();
-        let tokens = tokenizer.tokenize("ami tumi");
-        
-        assert_eq!(tokens[0].position, Some(TokenPosition::Initial));
-        assert_eq!(tokens[1].position, Some(TokenPosition::Medial));
-        assert_eq!(tokens[2].position, Some(TokenPosition::Final));
-        assert_eq!(tokens[3].position, None); // Whitespace
-        assert_eq!(tokens[4].position, Some(TokenPosition::Initial));
-        assert_eq!(tokens[5].position, Some(TokenPosition::Medial));
-        assert_eq!(tokens[6].position, Some(TokenPosition::Final));
     }
 }

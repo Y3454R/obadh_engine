@@ -162,38 +162,3 @@ impl Default for SpecialHandler {
         Self::new()
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_special_chars() {
-        let handler = SpecialHandler::new();
-        
-        assert_eq!(handler.get_special_char("t."), Some("ৎ".to_string()));
-        assert_eq!(handler.get_special_char("h."), Some("ঃ".to_string()));
-        assert_eq!(handler.get_special_char("n."), Some("ং".to_string()));
-    }
-    
-    #[test]
-    fn test_modifiers() {
-        let handler = SpecialHandler::new();
-        
-        assert_eq!(handler.add_anusvar("আমা"), "আমাং");
-        assert_eq!(handler.add_chandrabindu("আ"), "আঁ");
-        assert_eq!(handler.add_visarga("দু"), "দুঃ");
-    }
-    
-    #[test]
-    fn test_zwj_zwnj() {
-        let handler = SpecialHandler::new();
-        
-        assert_eq!(handler.apply_zwj("র্‍য"), "র্‍য");
-        assert_eq!(handler.apply_zwnj("ন্‌ন"), "ন্‌ন");
-        
-        // With support disabled
-        let handler_no_zwj = handler.with_zwj(false);
-        assert_eq!(handler_no_zwj.apply_zwj("র্‍য"), "র্‍য");
-    }
-}

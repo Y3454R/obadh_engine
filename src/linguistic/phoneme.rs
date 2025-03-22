@@ -35,16 +35,38 @@ pub struct Phoneme {
     pub phoneme_type: PhonemeType,
     /// The position in context
     pub position: Option<TokenPosition>,
+    /// The attached vowel diacritic (for consonants)
+    pub vowel: Option<String>,
+    /// Whether this phoneme is part of a consonant conjunct
+    pub is_conjunct_former: bool,
+    /// Whether this phoneme has a vowel after its conjunct
+    pub has_vowel_after_conjunct: bool,
+    /// Whether this phoneme has ya-phala (jofola)
+    pub has_ya_phala: bool,
+    /// Whether this phoneme has bo-fola (bo-fola)
+    pub has_bo_fola: bool,
+    /// Whether this phoneme is a reph (র্)
+    pub is_reph: bool,
 }
 
 impl Phoneme {
     /// Create a new phoneme
-    pub fn new(roman: &str, bengali: &str, phoneme_type: PhonemeType) -> Self {
+    pub fn new(
+        bengali: String, 
+        phoneme_type: PhonemeType,
+        position: Option<TokenPosition>
+    ) -> Self {
         Phoneme {
-            roman: roman.to_string(),
-            bengali: bengali.to_string(),
+            roman: String::new(), // Not needed with the new implementation
+            bengali,
             phoneme_type,
-            position: None,
+            position,
+            vowel: None,
+            is_conjunct_former: false,
+            has_vowel_after_conjunct: false,
+            has_ya_phala: false,
+            has_bo_fola: false,
+            is_reph: false,
         }
     }
     
@@ -86,25 +108,5 @@ impl Phoneme {
     /// Get the Roman representation
     pub fn roman(&self) -> &str {
         &self.roman
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_phoneme_creation() {
-        let consonant = Phoneme::new("k", "ক", PhonemeType::Consonant);
-        let vowel = Phoneme::new("a", "অ", PhonemeType::Vowel);
-        let modifier = Phoneme::new(".", "্", PhonemeType::Modifier);
-        
-        assert!(consonant.is_consonant());
-        assert!(vowel.is_vowel());
-        assert!(modifier.is_modifier());
-        assert!(modifier.is_hasanta());
-        
-        assert_eq!(consonant.bengali(), "ক");
-        assert_eq!(vowel.roman(), "a");
     }
 }

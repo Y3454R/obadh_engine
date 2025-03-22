@@ -5,7 +5,6 @@
 use wasm_bindgen::prelude::*;
 use crate::ObadhEngine;
 use crate::engine::transliterator::TransliterationAnalysis;
-use std::fmt;
 
 // Import JavaScript functions we need
 #[wasm_bindgen]
@@ -98,9 +97,7 @@ impl WasmEngine {
         
         // Convert to a WASM-friendly format
         WasmAnalysis {
-            // input: analysis.input,
-            // tokens: Self::tokens_to_json(&analysis),
-            input: analysis.input.clone(),
+            input: text.to_string(),
             tokens: Self::tokens_to_json(&analysis),
             phonemes: Self::phonemes_to_json(&analysis),
             syllables: Self::syllables_to_json(&analysis),

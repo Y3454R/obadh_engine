@@ -1,34 +1,30 @@
 # Obadh Engine (অবাধ ইঞ্জিন)
 
-A high-performance, linguistically accurate Roman-to-Bengali transliteration engine built with Rust.
+Obadh Engine is a Roman-to-Bengali transliteration engine built with Rust, focusing on linguistic accuracy and performance.
 
-## Features
+## Core Capabilities
 
-- ⚡ **High Performance**: Built in Rust for speed and efficiency
-- 🔍 **Linguistic Accuracy**: Based on phonological principles rather than exhaustive mappings
-- 🧩 **Algorithm-Driven**: Handles Bengali writing complexities algorithmically
-- 💻 **Cross-Platform**: Works on desktop, web, and can be integrated into other systems
-- 🌐 **WASM Support**: Compiles to WebAssembly for web usage
+- Built in Rust for native performance across platforms
+- Implements a phonological approach for accurate Bengali transliteration
+- Uses algorithmic syllable formation instead of extensive lookup tables
+- Compiles to WebAssembly for browser-based usage
 
-## Bengali Writing Features Supported
+## Supported Bengali Writing Features
 
-- ✓ Consonants and vowels
-- ✓ Conjuncts (juktakkhor)
-- ✓ Reph (র্)
-- ✓ Hasanta/Hosonto (্)
-- ✓ Vowel diacritics (kar)
-- ✓ Ya-phala (্য), Ra-phala (্র), etc.
-- ✓ Special symbols (Chandrabindu, Visarga, etc.)
-- ✓ Bengali numerals and punctuation
+- Consonants and vowels with proper rendering
+- Conjuncts (যুক্তাক্ষর) with correct orthography
+- Reph (র্) and other special forms
+- Ya-phala (্য), Ra-phala (্র), and other phonological modifications
+- Bengali numerals and punctuation
 
-## Quick Start
+## Getting Started
 
 ### Prerequisites
 
-- [Rust](https://www.rust-lang.org/tools/install) 1.56+
-- [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) (for web functionality)
+- [Rust](https://www.rust-lang.org/tools/install) 1.56 or newer
+- [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) for WebAssembly compilation
 
-### Building the Project
+### Building and Running
 
 1. Clone the repository:
 
@@ -37,7 +33,7 @@ git clone https://github.com/yourusername/obadh_engine.git
 cd obadh_engine
 ```
 
-2. Build the library:
+2. Build the library for native use:
 
 ```bash
 cargo build --release
@@ -49,79 +45,60 @@ cargo build --release
 cargo test
 ```
 
-4. Build WebAssembly module (for web usage):
+### Building for Web
+
+To build the WebAssembly version:
 
 ```bash
+# Use the build script
+./build.sh
+
+# Or run the commands manually
 wasm-pack build --target web --out-dir www/pkg
 ```
 
-5. Run the web interface:
+### Running the Web Demo
+
+Using the build script:
+
+```bash
+./build.sh serve
+```
+
+Or manually:
 
 ```bash
 cd www
-python -m http.server  # Or any local server
+python -m http.server
 ```
 
-Then visit `http://localhost:8000` in your browser.
+Then open `http://localhost:8000` in your browser.
 
-## Usage Examples
+## Implementation Details
 
-### As a Rust Library
+Obadh Engine processes text in several stages:
 
-```rust
-use obadh_engine::ObadhEngine;
+1. **Tokenization**: Input is broken into linguistic units
+2. **Phoneme Analysis**: Tokens are converted to Bengali phonological units
+3. **Syllable Formation**: Phonemes are organized following Bengali orthographic rules
+4. **Rendering**: Final output is generated with proper conjuncts and modifiers
 
-fn main() {
-    // Create a new engine instance
-    let engine = ObadhEngine::new();
-    
-    // Transliterate text
-    let bengali = engine.transliterate("amar sonar bangla");
-    println!("{}", bengali);  // Output: আমার সোনার বাংলা
-}
-```
+This phonological approach provides:
+- More accurate handling of complex Bengali script features
+- Better understanding of language-specific rules
+- Efficient memory usage compared to extensive lookup tables
 
-### On the Web
-
-```javascript
-// Import the WebAssembly module
-const wasm = await import('./pkg/obadh_engine.js');
-await wasm.default();
-
-// Create an instance of the WasmEngine
-const engine = new wasm.WasmEngine();
-
-// Transliterate text
-const result = engine.transliterate("ami bangla likhte pari");
-console.log(result);  // Output: আমি বাংলা লিখতে পারি
-```
-
-## How It Works
-
-Unlike traditional transliteration engines that use extensive lookup tables, Obadh Engine uses a phonological approach:
-
-1. **Tokenization**: Input text is broken into meaningful linguistic units
-2. **Phoneme Analysis**: Tokens are converted to Bengali phonemes
-3. **Syllable Formation**: Phonemes are organized into syllables following Bengali rules
-4. **Orthographic Rendering**: Syllables are rendered with proper conjuncts, pholas, etc.
-
-This approach is more memory-efficient and linguistically accurate than exhaustive mappings.
-
-## Project Structure
+## Code Organization
 
 ```
 obadh_engine/
 ├── src/               # Source code
-│   ├── engine/        # Core engine components
-│   ├── linguistic/    # Linguistic models
+│   ├── engine/        # Core processing engine
+│   ├── linguistic/    # Phonological models
 │   └── wasm/          # WebAssembly bindings
-├── tests/             # Test suite
+├── tests/             # Test suites
 └── www/               # Web interface
 ```
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 

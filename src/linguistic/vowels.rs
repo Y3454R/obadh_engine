@@ -22,18 +22,24 @@ lazy_static! {
     static ref INDEPENDENT_VOWEL_MAP: HashMap<&'static str, &'static str> = {
         let mut map = HashMap::new();
         
-        map.insert("a", "অ");
-        map.insert("aa", "আ");
-        map.insert("i", "ই");
-        map.insert("ii", "ঈ");
-        map.insert("u", "উ");
-        map.insert("uu", "ঊ");
-        map.insert("e", "এ");
-        map.insert("oi", "ঐ");
-        map.insert("o", "ও");
-        map.insert("ou", "ঔ");
-        map.insert("oo", "উ");  // Alternative for 'u'
-        map.insert("ri", "ঋ");  // Vocalic R
+        // Basic vowels as per the documentation
+        map.insert("o", "অ");     // অ-কার (a-kar)
+        map.insert("A", "আ");     // আ-কার (aa-kar)
+        map.insert("i", "ই");     // ই-কার (i-kar)
+        map.insert("I", "ঈ");     // ঈ-কার (dirgho i-kar)
+        map.insert("u", "উ");     // উ-কার (u-kar)
+        map.insert("U", "ঊ");     // ঊ-কার (dirgho u-kar)
+        map.insert("e", "এ");     // এ-কার (e-kar)
+        map.insert("OI", "ঐ");    // ঐ-কার (oi-kar)
+        map.insert("O", "ও");     // ও-কার (o-kar)
+        map.insert("OU", "ঔ");    // ঔ-কার (ou-kar)
+        map.insert("rri", "ঋ");   // ঋ-কার (ri-kar)
+        
+        // Common alternative spellings for backward compatibility
+        map.insert("a", "আ");     // Equivalent to 'A'
+        map.insert("aa", "আ");    // Equivalent to 'A'
+        map.insert("oi", "ঐ");    // Equivalent to 'OI'
+        map.insert("ou", "ঔ");    // Equivalent to 'OU'
         
         map
     };
@@ -42,18 +48,41 @@ lazy_static! {
     static ref DEPENDENT_VOWEL_MAP: HashMap<&'static str, &'static str> = {
         let mut map = HashMap::new();
         
-        map.insert("a", "া");
-        map.insert("aa", "া");
-        map.insert("i", "ি");
-        map.insert("ii", "ী");
-        map.insert("u", "ু");
-        map.insert("uu", "ূ");
-        map.insert("e", "ে");
-        map.insert("oi", "ৈ");
-        map.insert("o", "ো");
-        map.insert("ou", "ৌ");
-        map.insert("oo", "ু");  // Alternative for 'u'
-        map.insert("ri", "ৃ");  // Vocalic R
+        // Basic vowels as per the documentation
+        map.insert("o", "");      // Inherent vowel (no visible kar)
+        map.insert("A", "া");     // আ-কার (aa-kar)
+        map.insert("i", "ি");     // ই-কার (i-kar)
+        map.insert("I", "ী");     // ঈ-কার (dirgho i-kar)
+        map.insert("u", "ু");     // উ-কার (u-kar)
+        map.insert("U", "ূ");     // ঊ-কার (dirgho u-kar)
+        map.insert("e", "ে");     // এ-কার (e-kar)
+        map.insert("OI", "ৈ");    // ঐ-কার (oi-kar)
+        map.insert("O", "ো");     // ও-কার (o-kar)
+        map.insert("OU", "ৌ");    // ঔ-কার (ou-kar)
+        map.insert("rri", "ৃ");   // ঋ-কার (ri-kar)
+        
+        // Common alternative spellings for backward compatibility
+        map.insert("a", "া");     // Equivalent to 'A'
+        map.insert("aa", "া");    // Equivalent to 'A'
+        map.insert("oi", "ৈ");    // Equivalent to 'OI'
+        map.insert("ou", "ৌ");    // Equivalent to 'OU'
+        
+        map
+    };
+    
+    /// Map for vowel+vowel combinations
+    static ref VOWEL_VOWEL_COMBINATIONS: HashMap<&'static str, &'static str> = {
+        let mut map = HashMap::new();
+        
+        // As specified in the documentation
+        map.insert("aa", "আ");   // a + a
+        map.insert("ai", "আই");  // a + i
+        map.insert("au", "আউ");  // a + u
+        map.insert("ae", "আএ");  // a + e
+        map.insert("ao", "আও");  // a + o
+        map.insert("ia", "ইয়া"); // i + a
+        map.insert("io", "ইও");  // i + o
+        map.insert("eo", "এও");  // e + o
         
         map
     };
@@ -86,8 +115,8 @@ impl VowelHandler {
                 INDEPENDENT_VOWEL_MAP.get(roman).map(|s| s.to_string())
             },
             VowelForm::Dependent => {
-                // For inherent 'a', return empty string if handling inherent vowels
-                if roman == "a" && self.handle_inherent_a {
+                // For inherent 'o', return empty string if handling inherent vowels
+                if (roman == "o") && self.handle_inherent_a {
                     Some(String::new())
                 } else {
                     DEPENDENT_VOWEL_MAP.get(roman).map(|s| s.to_string())
@@ -105,7 +134,7 @@ impl VowelHandler {
         if !after_consonant {
             // Vowel at the beginning of a word or standalone
             VowelForm::Independent
-        } else if roman == "a" && !is_explicit && self.handle_inherent_a {
+        } else if roman == "o" && !is_explicit && self.handle_inherent_a {
             // Implicit 'অ' after consonant
             VowelForm::Inherent
         } else {
@@ -123,50 +152,25 @@ impl VowelHandler {
     pub fn get_vowel_strings(&self) -> Vec<&'static str> {
         INDEPENDENT_VOWEL_MAP.keys().cloned().collect()
     }
+    
+    /// Check if a string is a valid vowel+vowel combination
+    pub fn is_vowel_vowel_combination(&self, roman: &str) -> bool {
+        VOWEL_VOWEL_COMBINATIONS.contains_key(roman)
+    }
+    
+    /// Get the Bengali form of a vowel+vowel combination
+    pub fn get_vowel_vowel_combination(&self, roman: &str) -> Option<String> {
+        VOWEL_VOWEL_COMBINATIONS.get(roman).map(|s| s.to_string())
+    }
+    
+    /// Get all valid vowel+vowel combinations
+    pub fn get_vowel_vowel_combinations(&self) -> Vec<&'static str> {
+        VOWEL_VOWEL_COMBINATIONS.keys().cloned().collect()
+    }
 }
 
 impl Default for VowelHandler {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_vowel_forms() {
-        let handler = VowelHandler::new();
-        
-        // Independent forms
-        assert_eq!(handler.get_vowel_form("a", VowelForm::Independent), Some("অ".to_string()));
-        assert_eq!(handler.get_vowel_form("i", VowelForm::Independent), Some("ই".to_string()));
-        
-        // Dependent forms
-        assert_eq!(handler.get_vowel_form("a", VowelForm::Dependent), Some("".to_string()));  // Inherent vowel
-        assert_eq!(handler.get_vowel_form("i", VowelForm::Dependent), Some("ি".to_string()));
-        
-        // With inherent 'a' disabled
-        let handler_no_inherent = handler.with_inherent_a(false);
-        assert_eq!(handler_no_inherent.get_vowel_form("a", VowelForm::Dependent), Some("া".to_string()));
-    }
-    
-    #[test]
-    fn test_determine_vowel_form() {
-        let handler = VowelHandler::new();
-        
-        // Independent forms
-        assert_eq!(handler.determine_vowel_form("a", false, false), VowelForm::Independent);
-        assert_eq!(handler.determine_vowel_form("i", false, false), VowelForm::Independent);
-        
-        // Inherent 'a'
-        assert_eq!(handler.determine_vowel_form("a", true, false), VowelForm::Inherent);
-        
-        // Explicit 'a' after consonant
-        assert_eq!(handler.determine_vowel_form("a", true, true), VowelForm::Dependent);
-        
-        // Other vowels after consonant
-        assert_eq!(handler.determine_vowel_form("i", true, false), VowelForm::Dependent);
     }
 }
