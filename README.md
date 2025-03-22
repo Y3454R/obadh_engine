@@ -146,3 +146,73 @@ obadh "amar sonar bangla" -d
 # Process a batch of text from a file
 obadh -i input.txt -o output.txt
 ```
+
+## Debug Mode and Performance Metrics
+
+Obadh Engine provides built-in diagnostics and performance analysis capabilities for developers and technical users.
+
+### Debug Flag (-d)
+
+When the debug flag is enabled, the engine outputs detailed JSON with full processing information:
+
+```json
+{
+  "input": "amar sonar bangla",
+  "output": "আমার সোনার বাংলা",
+  "tokens": [
+    {"type": "Consonant", "value": "a", "position": 0},
+    {"type": "Consonant", "value": "m", "position": 1},
+    // ... more tokens
+  ],
+  "phonemes": [
+    {"type": "Vowel", "value": "আ"},
+    {"type": "Consonant", "value": "ম"},
+    // ... more phonemes
+  ],
+  "syllables": [
+    ["আ", "মা", "র"],
+    ["সো", "না", "র"],
+    ["বাং", "লা"]
+  ],
+  "performance": {
+    "total_ms": 0.215,
+    "analysis_ms": 0.142,
+    "token_count": 17,
+    "estimated_chars_per_second": 79069
+  }
+}
+```
+
+This output provides:
+- Original input and transliterated output
+- Complete token breakdown with position information
+- Phoneme analysis showing the phonological units
+- Syllable organization showing Bengali orthographic grouping
+- Performance metrics with timing details
+
+### Performance Metrics API
+
+For programmatic access to performance data, the library provides these methods:
+
+```rust
+// Get detailed performance metrics for a single transliteration
+let metrics_json = engine.transliterate_with_performance("amar sonar bangla");
+
+// Process a batch with performance tracking
+let batch_metrics = engine.batch_transliterate_with_performance(&["amar", "sonar", "bangla"]);
+
+// Use efficient batch processing for larger datasets
+let results = engine.batch_transliterate_efficient(&large_input_array);
+```
+
+Batch processing metrics include:
+- Total processing time in milliseconds
+- Average time per text item
+- Individual processing time for each item
+- Estimated characters per second
+
+These features are particularly useful for:
+- Debugging transliteration issues
+- Performance optimization and bottleneck identification
+- Integration testing
+- Analysis of complex Bengali linguistic patterns
