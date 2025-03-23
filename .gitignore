@@ -9,6 +9,19 @@ target/
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
 
+# WebAssembly build artifacts
+pkg/
+
+# Node.js
+node_modules/
+www/node_modules/
+www/css/styles.css
+www/*.bak
+
+# Package locks
+# Comment the following line if you want to keep package-lock.json in version control
+#www/package-lock.json
+
 # RustRover
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
 #  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
