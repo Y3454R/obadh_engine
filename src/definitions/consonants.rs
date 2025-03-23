@@ -41,9 +41,10 @@ pub fn consonant_system() -> ConsonantSystem {
         palatals: vec![
             ("c", "চ"),    // ca
             ("ch", "ছ"),   // cha
+            ("J", "জ"),    // ja
             ("j", "জ"),    // ja
             ("jh", "ঝ"),   // jha
-            ("n", "ঞ"),    // nya (palatized)
+            ("NG", "ঞ"),    // nya (palatized)
         ],
         
         // Retroflex (ṭa-varga)
@@ -85,7 +86,8 @@ pub fn consonant_system() -> ConsonantSystem {
         // Fricatives
         fricatives: vec![
             ("sh", "শ"),   // palatal śô
-            ("S", "ষ"),    // retroflex ṣô
+            ("S", "শ"),   // palatal śô
+            ("Sh", "ষ"),    // retroflex ṣô
             ("s", "স"),    // dental sô
             ("h", "হ"),    // hô
         ],
@@ -95,6 +97,7 @@ pub fn consonant_system() -> ConsonantSystem {
             ("R", "ড়"),    // ṛô
             ("Rh", "ঢ়"),   // ṛhô
             ("y", "য়"),    // antastô yô
+            ("Y", "য়"),    // antastô yô
         ],
     }
 }

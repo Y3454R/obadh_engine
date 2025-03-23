@@ -107,6 +107,8 @@ impl Tokenizer {
         
         // Get vowel patterns from the definitions
         let vowels_map = vowels();
+        println!("DEBUG: Available vowel patterns: {:?}", vowels_map.keys().collect::<Vec<_>>());
+        
         for roman in vowels_map.keys() {
             // Mark only 'o' as a terminating vowel
             if *roman == "o" {
@@ -114,6 +116,8 @@ impl Tokenizer {
             }
             vowel_patterns.insert(roman.to_string(), true);
         }
+        
+        println!("DEBUG: Added vowel patterns: {:?}", vowel_patterns.keys().collect::<Vec<_>>());
         
         // Add terminating vowel 'o' separately
         if vowels_map.contains_key("o") {
@@ -293,6 +297,8 @@ impl Tokenizer {
     pub fn tokenize_word(&self, word: &str) -> Vec<PhoneticUnit> {
         let mut units = Vec::new();
         
+        println!("DEBUG: Tokenizing word: {}", word);
+        
         // Process the word character by character
         let mut _i = 0;
         
@@ -331,6 +337,28 @@ impl Tokenizer {
         
         // Process the base word without diacritics
         while _i < processed_word.len() {
+            // First check for multi-letter vowels like "rri", "OI", "OU"
+            let mut matched_multi_vowel = false;
+            let multi_letter_vowels = ["rri", "OI", "OU"];
+            
+            for vowel in &multi_letter_vowels {
+                if _i + vowel.len() <= processed_word.len() && &processed_word[_i.._i+vowel.len()] == *vowel {
+                    println!("DEBUG: Found multi-letter vowel: {}", vowel);
+                    units.push(PhoneticUnit {
+                        text: vowel.to_string(),
+                        unit_type: PhoneticUnitType::Vowel,
+                        position: _i,
+                    });
+                    _i += vowel.len();
+                    matched_multi_vowel = true;
+                    break;
+                }
+            }
+            
+            if matched_multi_vowel {
+                continue;
+            }
+            
             // Try to match special sequences first
             let mut matched = false;
             
@@ -346,6 +374,11 @@ impl Tokenizer {
             }
             
             for (sequence, unit_type) in &self.special_sequences {
+                // Skip "rr" if the next character is "i" (part of "rri")
+                if sequence == "rr" && _i + 3 <= processed_word.len() && &processed_word[_i.._i+3] == "rri" {
+                    continue;
+                }
+                
                 if _i + sequence.len() <= processed_word.len() && &processed_word[_i.._i+sequence.len()] == sequence {
                     // Ensure all special forms are treated as SpecialForm, even T``
                     let final_unit_type = if sequence == "T``" {
@@ -393,13 +426,27 @@ impl Tokenizer {
                 
             // Try to match vowel patterns (longer patterns first)
             let mut matched_vowel = false;
+            
+            // Remove the special case for multi-letter vowels and instead
+            // ensure all vowel patterns from vowels() are used, sorted properly
             let mut vowel_patterns: Vec<_> = self.vowel_patterns.keys().collect();
             vowel_patterns.sort_by(|a, b| b.len().cmp(&a.len())); // Sort by length, descending
             
-            for pattern in vowel_patterns {
-                if _i + pattern.len() <= processed_word.len() && &processed_word[_i.._i+pattern.len()] == pattern {
+            if word == "krri" && _i == 1 {
+                println!("DEBUG: Checking for vowels at position {} in '{}', remaining: '{}'", 
+                         _i, word, &processed_word[_i..]);
+                for pattern in &vowel_patterns {
+                    if _i + pattern.len() <= processed_word.len() {
+                        println!("DEBUG: Checking pattern '{}' against '{}'", 
+                                 pattern, &processed_word[_i.._i+pattern.len()]);
+                    }
+                }
+            }
+            
+            for pattern in &vowel_patterns {
+                if _i + pattern.len() <= processed_word.len() && &processed_word[_i.._i+pattern.len()] == *pattern {
                     units.push(PhoneticUnit {
-                        text: pattern.clone(),
+                        text: (*pattern).clone(),
                         unit_type: PhoneticUnitType::Vowel,
                         position: _i,
                     });
@@ -410,8 +457,8 @@ impl Tokenizer {
             }
             
             if matched_vowel {
-                    continue;
-                }
+                continue;
+            }
             
             // If no pattern matched, treat as unknown and advance by one character
             if _i < processed_word.len() {
@@ -487,6 +534,11 @@ impl Tokenizer {
     /// Identify complex phonetic forms like conjuncts and consonants with vowel modifiers
     fn identify_complex_forms(&self, units: &mut Vec<PhoneticUnit>) {
         let mut _i = 0;
+        
+        println!("DEBUG: After initial tokenization, {} units", units.len());
+        for unit in units.iter() {
+            println!("DEBUG: Unit '{}' type: {:?}", unit.text, unit.unit_type);
+        }
         
         // First pass: Handle special "rr" cases
         // - "rri" as vocalic R vowel
@@ -616,6 +668,8 @@ impl Tokenizer {
                units[_i].unit_type == PhoneticUnitType::Consonant &&
                units[_i+1].text == "rri" && 
                units[_i+1].unit_type == PhoneticUnitType::Vowel {
+                
+                println!("DEBUG: Found consonant + vocalic R vowel: {} + {}", units[_i].text, units[_i+1].text);
                 
                 let combined_text = format!("{}{}", units[_i].text, units[_i+1].text);
                 let _position = units[_i].position;
