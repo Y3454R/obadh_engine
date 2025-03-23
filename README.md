@@ -202,7 +202,7 @@ transliterateWithMetrics("ami banglay gan gai").then(result => {
 
 The Playground (`অবাধ খেলাঘর`) is a web application for testing and experimenting with the transliteration engine. It serves as both a development tool and a demonstration of the API.
 
-**Live Demo**: [http://sayom.me/obadh_engine/](http://sayom.me/obadh_engine/)
+**Live Demo**: [https://sayom.me/obadh_engine/index.html](https://sayom.me/obadh_engine/index.html)
 
 ### Features
 
