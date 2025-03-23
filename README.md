@@ -202,7 +202,7 @@ transliterateWithMetrics("ami banglay gan gai").then(result => {
 
 The Playground (`অবাধ খেলাঘর`) is a web application for testing and experimenting with the transliteration engine. It serves as both a development tool and a demonstration of the API.
 
-**Live Demo**: [Playground URL](https://yourusername.github.io/obadh_engine/) (replace with actual URL)
+**Live Demo**: [http://sayom.me/obadh_engine/](http://sayom.me/obadh_engine/)
 
 ### Features
 
@@ -293,17 +293,23 @@ To run the playground locally:
 
 ### GitHub Pages Deployment
 
-To deploy the playground to GitHub Pages:
+The playground is deployed to GitHub Pages from the `docs` directory:
 
 ```bash
-# Build for distribution
+# Build for distribution (builds to docs/ directory)
 ./build.sh dist
 
 # Commit the generated files
-git add www/index.html www/css/styles.css www/js/*.js www/js/*.wasm docs/index.html
-git commit -m "Update playground files"
+git add docs/
+git commit -m "Update playground files for GitHub Pages"
 git push
 ```
+
+The `dist` command automatically:
+1. Builds the WASM package
+2. Compiles the CSS
+3. Cleans the `docs/` directory completely
+4. Copies all necessary files to the `docs/` directory for GitHub Pages hosting
 
 ## Library Usage
 

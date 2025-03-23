@@ -84,6 +84,20 @@ clean() {
     return 0
 }
 
+# Copy and fix paths in index.html for docs directory
+fix_index_paths() {
+    local src="$1"
+    local dst="$2"
+    
+    info "Fixing paths in index.html for GitHub Pages..."
+    
+    # Copy the file first
+    cp "$src" "$dst" || error "Failed to copy index.html"
+    
+    # No path fixes needed as all resources use relative paths already
+    # If needed, this is where we would adjust paths for GitHub Pages
+}
+
 # Build the WASM package and setup web files
 build_wasm() {
     info "Building WASM Package..."
@@ -135,7 +149,7 @@ build_dist() {
     # Change to www directory
     cd www || error "Failed to change to www directory"
     
-    # Copy WASM files
+    # Copy WASM files to js directory
     info "Copying WebAssembly files..."
     mkdir -p js
     cp ../pkg/*.js js/ || error "Failed to copy JS files"
@@ -154,14 +168,36 @@ build_dist() {
     # Return to project root
     cd ..
     
+    # Clean and prepare docs directory
+    info "Preparing docs directory for GitHub Pages..."
+    if [ -d "docs" ]; then
+        # Simply clean the directory - docs/ is only for GitHub Pages
+        rm -rf docs/* || error "Failed to clean docs directory"
+    else
+        mkdir -p docs || error "Failed to create docs directory"
+    fi
+    
+    # Copy index.html with path fixes
+    fix_index_paths "www/index.html" "docs/index.html"
+    
+    # Copy all necessary files to docs directory
+    info "Copying files to docs directory..."
+    mkdir -p docs/css
+    cp www/css/styles.css docs/css/ || error "Failed to copy CSS files"
+    mkdir -p docs/js
+    cp www/js/*.js docs/js/ || error "Failed to copy JS files"
+    cp www/js/*.wasm docs/js/ || error "Failed to copy WASM files"
+    
+    # Check for other assets that might need to be copied
+    if [ -d "www/assets" ]; then
+        mkdir -p docs/assets
+        cp -r www/assets/* docs/assets/ || error "Failed to copy assets directory"
+    fi
+    
     # Success message
-    success "Distribution build complete! Files are ready in the www directory."
-    info "You can now commit the following files to your repository for GitHub Pages:"
-    info "  - www/index.html"
-    info "  - www/css/styles.css"
-    info "  - www/js/*.js"
-    info "  - www/js/*.wasm"
-    info "  - docs/index.html (redirects to www/index.html)"
+    success "Distribution build complete! Files are ready in the docs directory."
+    info "You can now commit the docs directory for GitHub Pages deployment."
+    info "Your site will be available at: https://sayom.me/obadh_engine/"
     return 0
 }
 
