@@ -114,6 +114,47 @@ build_css() {
     return 0
 }
 
+# Build for distribution (GitHub Pages)
+build_dist() {
+    info "Building project for distribution (GitHub Pages)..."
+    
+    # First build the WASM package
+    info "Building WebAssembly package..."
+    wasm-pack build --target web --out-dir pkg || error "Failed to build WebAssembly package"
+    
+    # Change to www directory
+    cd www || error "Failed to change to www directory"
+    
+    # Copy WASM files
+    info "Copying WebAssembly files..."
+    mkdir -p js
+    cp ../pkg/*.js js/ || error "Failed to copy JS files"
+    cp ../pkg/*.wasm js/ || error "Failed to copy WASM files"
+    
+    # Fix import paths in JS files
+    info "Fixing module paths in JavaScript files..."
+    for jsfile in js/*.js; do
+        sed -i.bak 's|import.meta.url, \"../pkg/|import.meta.url, \"|g' "$jsfile" && rm -f "$jsfile.bak"
+    done
+    
+    # Build CSS
+    info "Building CSS..."
+    npm run build || error "Failed to build CSS"
+    
+    # Return to project root
+    cd ..
+    
+    # Success message
+    success "Distribution build complete! Files are ready in the www directory."
+    info "You can now commit the following files to your repository for GitHub Pages:"
+    info "  - www/index.html"
+    info "  - www/css/styles.css"
+    info "  - www/js/*.js"
+    info "  - www/js/*.wasm"
+    info "  - docs/index.html (redirects to www/index.html)"
+    return 0
+}
+
 # Serve the web application
 serve() {
     info "Starting development server..."
@@ -156,9 +197,11 @@ show_help() {
     echo "  ./build.sh serve    # Start the development server only"
     echo "  ./build.sh dev      # Start development mode with file watching"
     echo "  ./build.sh start    # Build everything and start the server"
+    echo "  ./build.sh dist     # Build for distribution (GitHub Pages)"
     echo "  ./build.sh clean    # Clean up build artifacts"
     echo ""
     echo "Note: Using 'dev' or 'serve' is the recommended way for development."
+    echo "      Use 'dist' to prepare files for GitHub Pages deployment."
 }
 
 # Main execution
@@ -181,6 +224,10 @@ case "$1" in
     "dev")
         check_requirements
         dev
+        ;;
+    "dist")
+        check_requirements
+        build_dist
         ;;
     "start")
         check_requirements

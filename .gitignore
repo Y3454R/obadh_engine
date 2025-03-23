@@ -15,7 +15,6 @@ pkg/
 # Node.js
 node_modules/
 www/node_modules/
-www/css/styles.css
 www/*.bak
 
 # Package locks
@@ -28,3 +27,8 @@ www/*.bak
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Include distribution files needed for GitHub Pages
+!www/css/styles.css
+!www/js/*.js
+!www/js/*.wasm
