@@ -196,6 +196,115 @@ transliterateWithMetrics("ami banglay gan gai").then(result => {
 });
 ```
 
+## Playground Application
+
+### Overview
+
+The Playground (`অবাধ খেলাঘর`) is a web application for testing and experimenting with the transliteration engine. It serves as both a development tool and a demonstration of the API.
+
+**Live Demo**: [Playground URL](https://yourusername.github.io/obadh_engine/) (replace with actual URL)
+
+### Features
+
+- Real-time transliteration with immediate feedback
+- Three operation modes:
+  - Simple: Shows only the transliterated output
+  - Debug: Displays performance metrics and basic token information
+  - Verbose: Provides complete token analysis
+- JSON output view for examining the engine's response structure
+- Light/dark theme based on system preference with manual override
+- Responsive layout adapting to different screen sizes
+
+### Technical Implementation
+
+#### Core Components
+
+The playground utilizes several technologies:
+
+- WebAssembly for the transliteration engine
+- Alpine.js for reactive UI components
+- Tailwind CSS for styling
+- HTTP server with CORS support
+
+#### Architecture
+
+The application follows a straightforward structure:
+
+1. Input is captured and debounced (150ms) to avoid excessive processing
+2. The WebAssembly module processes the text based on the selected mode
+3. Output is displayed and formatted according to view settings
+
+Key implementation details:
+
+1. **WebAssembly Integration**:
+   ```javascript
+   import init, { ObadhaWasm, TransliterationOptions } from './js/obadh_engine.js';
+   
+   async function initWasm() {
+     await init();
+     window.obadhaWasm = new ObadhaWasm();
+     window.translitOptions = new TransliterationOptions();
+   }
+   ```
+
+2. **Input Processing**:
+   ```javascript
+   // Process input text with debouncing
+   this.debouncedTransliterate = debounce(this.doTransliterate.bind(this), 150);
+   
+   doTransliterate() {
+     if (this.mode === 'simple') {
+       const output = window.obadhaWasm.transliterate(this.inputText);
+       this.result = { input: this.inputText, output: output };
+     } else {
+       window.translitOptions.debug = true;
+       window.translitOptions.verbose = this.mode === 'verbose';
+       this.result = window.obadhaWasm.transliterate_with_options(this.inputText, window.translitOptions);
+     }
+   }
+   ```
+
+3. **Error Handling**:
+   ```javascript
+   try {
+     // Normal transliteration code
+   } catch (err) {
+     console.error('Transliteration error:', err);
+     this.result = {
+       input: this.inputText,
+       output: `Error: ${err.message || 'Could not transliterate text'}`,
+       performance: null,
+       token_analysis: null
+     };
+   }
+   ```
+
+### Running Locally
+
+To run the playground locally:
+
+```bash
+# Development mode with file watching
+./build.sh dev
+
+# Production build
+./build.sh dist
+```
+
+### GitHub Pages Deployment
+
+To deploy the playground to GitHub Pages:
+
+```bash
+# Build for distribution
+./build.sh dist
+
+# Commit the generated files
+git add www/index.html www/css/styles.css www/js/*.js www/js/*.wasm docs/index.html
+git commit -m "Update playground files"
+git push
+```
+
 ## Library Usage
 
 To use Obadh Engine as a library in your Rust project, add it to your `Cargo.toml`:

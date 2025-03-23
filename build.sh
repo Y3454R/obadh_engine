@@ -88,14 +88,24 @@ clean() {
 build_wasm() {
     info "Building WASM Package..."
     
+    # Build WebAssembly package
+    wasm-pack build --target web --out-dir pkg || error "Failed to build WebAssembly package"
+    
     # Check for www directory
     if [ ! -d "www" ]; then
         error "www directory does not exist. Please create it first."
     fi
     
-    # Run the npm script to build wasm
+    # Copy WASM files to www/js
     cd www
-    npm run build-wasm || error "Failed to build WASM package"
+    mkdir -p js
+    cp ../pkg/*.js js/ || error "Failed to copy JS files"
+    cp ../pkg/*.wasm js/ || error "Failed to copy WASM files"
+    
+    # Fix import paths in JS files
+    for jsfile in js/*.js; do
+        sed -i.bak 's|import.meta.url, \"../pkg/|import.meta.url, \"|g' "$jsfile" && rm -f "$jsfile.bak"
+    done
     cd ..
     
     success "WASM build complete!"
