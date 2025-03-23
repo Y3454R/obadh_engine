@@ -233,11 +233,53 @@ start() {
     cd ..
 }
 
+# Build the native Rust binary
+build_bin() {
+    info "Building native Rust binary..."
+    
+    # Build in release mode for optimization
+    cargo build --release --bin obadh || error "Failed to build native binary"
+    
+    success "Native binary built successfully at: target/release/obadh"
+    info "You can install it to your system with: cargo install --path ."
+    return 0
+}
+
+# Build everything (bin, wasm, css, dist)
+build_all() {
+    info "Building everything (native binary, WASM, CSS, and distribution files)..."
+    
+    # First clean everything
+    clean
+    
+    # Build the native binary
+    build_bin
+    
+    # Build for distribution (this includes building WASM and CSS)
+    build_dist
+    
+    success "All components built successfully!"
+    info "Native binary is available at: target/release/obadh"
+    info "Web files are ready in the docs/ directory for GitHub Pages."
+    info ""
+    info "To serve the web interface locally:"
+    info "cd docs && python -m http.server 8000"
+    info "Then visit: http://localhost:8000"
+    info ""
+    info "Or you can just deploy to GitHub Pages:"
+    info "git add docs/"
+    info "git commit -m \"Update deployment files\""
+    info "git push"
+    
+    return 0
+}
+
 # Display the help information
 show_help() {
     echo "Obadh Engine Build Tool"
     echo "======================="
     echo "Usage:"
+    echo "  ./build.sh bin      # Build the native Rust binary (bin/obadh)"
     echo "  ./build.sh wasm     # Build the WASM package"
     echo "  ./build.sh css      # Build Tailwind CSS"
     echo "  ./build.sh serve    # Start the development server only"
@@ -245,9 +287,12 @@ show_help() {
     echo "  ./build.sh start    # Build everything and start the server"
     echo "  ./build.sh dist     # Build for distribution (GitHub Pages)"
     echo "  ./build.sh clean    # Clean up build artifacts"
+    echo "  ./build.sh all      # Build everything (bin, wasm, css, dist)"
     echo ""
     echo "Note: Using 'dev' or 'serve' is the recommended way for development."
     echo "      Use 'dist' to prepare files for GitHub Pages deployment."
+    echo "      Use 'bin' to build the command-line tool."
+    echo "      Use 'all' to build everything for production and distribution."
 }
 
 # Main execution
@@ -278,6 +323,14 @@ case "$1" in
     "start")
         check_requirements
         clean && build_wasm && build_css && serve
+        ;;
+    "bin")
+        check_requirements
+        build_bin
+        ;;
+    "all")
+        check_requirements
+        build_all
         ;;
     *)
         show_help

@@ -20,6 +20,9 @@ cargo run --bin obadh -- "ami banglay gan gai"
 # Try the debug mode with performance metrics
 cargo run --bin obadh -- --debug "ami banglay gan gai"
 
+# Build a release binary
+./build.sh bin
+
 # Run tests
 cargo test
 
@@ -357,6 +360,34 @@ cargo run --bin obadh -- --help
 cargo run --bin obadh -- --version
 ```
 
+### Building the CLI Binary
+
+For production use, you should build an optimized release version of the binary:
+
+```bash
+# Using the build script
+./build.sh bin
+
+# Or using Cargo directly
+cargo build --release --bin obadh
+```
+
+The binary will be available at `target/release/obadh`. You can install it to your system with:
+
+```bash
+# Install to your Cargo bin directory
+cargo install --path .
+
+# Now you can use the command directly
+obadh "ami banglay gan gai"
+```
+
+Alternatively, you can build everything at once including the CLI binary:
+
+```bash
+./build.sh all
+```
+
 #### Command-line Options
 
 - `-h, --help`: Show help information
@@ -379,7 +410,8 @@ cargo run --bin obadh -- --version
 - `www/`: Web interface files
   - `index.html`: Main web application
   - `css/`: Stylesheets
-  - `js/`: JavaScript modules and WASM files
+  - `js/`: JavaScript files and WASM
+  - `package.json` - npm configuration
 - `tests/`: Test cases for the engine
 
 ### Building
@@ -387,6 +419,9 @@ cargo run --bin obadh -- --version
 The project includes a streamlined build script to simplify common tasks:
 
 ```bash
+# Build the native Rust binary (CLI tool)
+./build.sh bin
+
 # Clean build artifacts
 ./build.sh clean
 
@@ -404,7 +439,18 @@ The project includes a streamlined build script to simplify common tasks:
 
 # Build everything and start the server (for production)
 ./build.sh start
+
+# Build everything for production and distribution
+./build.sh all
 ```
+
+The `all` command builds everything including:
+- The native binary (available at `target/release/obadh`)
+- The WASM package
+- CSS files
+- Distribution files in the `docs/` directory for GitHub Pages
+
+After running the `all` command, you'll get instructions on how to serve the web interface locally or deploy to GitHub Pages.
 
 All commands are designed to handle signals properly, so you can press CTRL+C to gracefully stop any running server process.
 
@@ -467,7 +513,7 @@ When using development mode:
     - `input.css` - Source Tailwind CSS
     - `styles.css` - Compiled CSS (don't edit directly)
   - `js/` - JavaScript files and WASM
-  - `package.json` - npm configuration
+  - `package.json`
 
 ### Build Commands Related to Web Interface
 
