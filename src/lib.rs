@@ -5,10 +5,12 @@
 
 pub mod definitions;
 pub mod engine;
+pub mod wasm;
 
 // Re-export commonly used types for convenience
 pub use engine::{Sanitizer, SanitizeResult};
 pub use engine::{Tokenizer, Token, TokenType, PhoneticUnit, PhoneticUnitType};
+pub use wasm::ObadhaWasm;
 
 /// Main entry point for the Obadh transliteration engine
 pub struct ObadhEngine {

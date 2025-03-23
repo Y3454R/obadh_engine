@@ -1,0 +1,29 @@
+{
+  "name": "obadh-engine-web",
+  "version": "0.1.0",
+  "description": "Web interface for the Obadh Engine - A Roman to Bengali transliteration engine",
+  "scripts": {
+    "build": "tailwindcss -i ./css/input.css -o ./css/styles.css --minify",
+    "watch": "tailwindcss -i ./css/input.css -o ./css/styles.css --watch",
+    "serve": "http-server . -p 8080 --cors -c-1 -a localhost",
+    "dev": "npm run watch & npm run serve",
+    "build-wasm": "cd .. && wasm-pack build --target web --out-dir pkg && npm run copy-wasm",
+    "copy-wasm": "mkdir -p js && cp ../pkg/*.js js/ && cp ../pkg/*.wasm js/ && for jsfile in js/*.js; do sed -i.bak 's|import.meta.url, \"\\.\\./pkg/|import.meta.url, \"|g' \"$jsfile\" && rm -f \"$jsfile.bak\"; done",
+    "start": "npm run build && npm run serve"
+  },
+  "keywords": [
+    "transliteration",
+    "bengali",
+    "wasm",
+    "webassembly"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.3",
+    "autoprefixer": "^10.4.14",
+    "http-server": "^14.1.1",
+    "postcss": "^8.4.24",
+    "tailwindcss": "^3.3.2"
+  }
+}
